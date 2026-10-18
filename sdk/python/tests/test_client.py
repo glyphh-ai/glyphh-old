@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from jsonschema import validate
 
-from glyphh_ada import Ada, AdaError, Result
+from glyphh import Ada, AdaError, Result
 
 CONTRACT = json.loads((Path(__file__).parents[3] / "contract" / "contract.json").read_text())
 FIXTURES = json.loads((Path(__file__).parents[3] / "contract" / "fixtures.json").read_text())

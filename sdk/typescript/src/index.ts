@@ -1,6 +1,6 @@
 /**
- * @glyphh-ai/ada — your runtime, for one key. Every call is one request to the runtime's API at its own address
- * (https://<machine>.glyphh.app), with a runtime key as the bearer. Nothing of Glyphh's is in between.
+ * @glyphh-ai/glyphh — your runtime, for one key. Every call is one request to the runtime's API at its own address
+ * (https://<machine>.glyphh.app hosted, or https://<host> self-hosted), with a runtime key as the bearer. Nothing of Glyphh's is in between.
  *
  *     const incidents = new Ada().model("incidents");   // GLYPHH_RUNTIME_URL and GLYPHH_RUNTIME_KEY
  *     const r = await incidents.decide({ error: { ... } });

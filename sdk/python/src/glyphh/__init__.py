@@ -3,4 +3,4 @@
 from .client import FINAL, WAITING, Ada, AdaError, Model, Result, Transport
 
 __all__ = ["FINAL", "WAITING", "Ada", "AdaError", "Model", "Result", "Transport"]
-__version__ = "0.3.0"
+__version__ = "3.0.0"
