@@ -7,6 +7,7 @@
 set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 WORK=${GLYPHH_MCP_BUILD:-$(mktemp -d)}
+mkdir -p "$WORK"
 cp "$HERE/package.json" "$HERE/package-lock.json" "$WORK/"
 rm -rf "$WORK/src" "$WORK/mcp" "$WORK/hooks" && mkdir -p "$WORK/mcp" "$WORK/hooks/glyphh"
 cp -R "$HERE/src" "$WORK/mcp/src" && cp "$HERE/../hooks/glyphh/machine.ts" "$WORK/hooks/glyphh/"
