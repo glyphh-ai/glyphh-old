@@ -35,7 +35,7 @@ precedents is a `failed` run whose `data.code` is `E_LIMIT_PRECEDENTS`. The cont
 
 This package was `@glyphh-ai/ada` up to 0.4.0; it is `@glyphh-ai/glyphh` now, at 3.0.0 to keep one version with the
 Python SDK (`glyphh` on PyPI, where 3.0.0 is a break from the old 2.x library of that name). The API is the same:
-change the import. `@glyphh-ai/ada` is deprecated and gets no new versions.
+change the import. `@glyphh-ai/ada` is removed from npm.
 
 ## License
 

@@ -10,7 +10,7 @@ Both packages carry one version; a tag `sdk-v<version>` publishes both.
   old HDC runtime (`glyphh-runtime`), a different library. 3.0.0 breaks from it: code written for `glyphh` 2.x does
   not run on 3.x, and anything pinned to `glyphh<3` keeps the old library. npm's `@glyphh-ai/glyphh` starts at 3.0.0
   to keep one version with PyPI.
-- **Deprecated:** `glyphh-ada` and `@glyphh-ai/ada`. They get no new versions; move to the new names.
+- **Removed:** `glyphh-ada` (PyPI) and `@glyphh-ai/ada` (npm) are deleted from the registries; use the new names.
 - The source moved from `glyphh-ai/ada` to `glyphh-ai/glyphh` (`sdk/`, `contract/`), its history kept.
 - A runtime's address may be a self-hosted one, `https://<host>`, as well as `https://<machine>.glyphh.app`.
 
