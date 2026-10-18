@@ -5,7 +5,7 @@ import type { Json } from '../../types'
 import { glyphhPath, readJson } from './home'
 import type { Host } from './host'
 
-export const DEFAULT_SERVER = 'http://localhost:8080'
+export const DEFAULT_SERVER = 'https://api.glyphh.ai'
 
 export class ApiError extends Error {
   constructor(

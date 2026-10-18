@@ -1,8 +1,48 @@
 # glyphh
 
-The Glyphh mod for Claude Code: the Glyphh account. Sign in, the account,
-org, plan and billing panels, and the licence every other Glyphh mod reads.
-Every other mod depends on it.
+The Glyphh plugin for Claude Code, 1.0.0: one install for everything Glyphh in Claude.
+
+- **The account** (a hooks module): sign in, the account, org, plan and billing panels, the sign-in card.
+- **Ada** (a skill, `skills/ada/SKILL.md`): when to reach for an Ada model, how to write one, deploy it by commit
+  and call it on your runtime's connector, hosted at `https://<machine>.glyphh.app/mcp` or self-hosted at
+  `https://<host>/mcp`. Ada is in every plan, Free included.
+- **The file ledger** (command hooks, `hooks/ledger.py`): what was last done to each file and why, brought back
+  when Claude reads the file again. See [The file ledger](#the-file-ledger).
+
+```
+/plugin marketplace add glyphh-ai/glyphh
+/plugin install glyphh@glyphh
+```
+
+This plugin replaces the `ada` plugin of the old `glyphh-ai/mods` marketplace: its skill and its ledger are here.
+
+## Ada
+
+The skill tells Claude how to work with Ada models on the person's runtime: agree the case, write `spec.json`,
+`glyphh.json` and `model.py`, deploy a commit (`model_deploy`), seed and `learn`, then `query` and `decide`, using the
+runtime connector's own tools (`models_list`, `model_deploy`, `model_call`, `model_continue`, `model_cancel`,
+`run_status`, `run_log`, `approvals`). It installs nothing and runs nothing on the machine.
+
+The runtime is reached directly, never through Glyphh's server: hosted at `https://<machine>.glyphh.app/mcp`
+(started on the platform, https://platform.glyphh.ai), or self-hosted at `https://<host>/mcp`
+(https://github.com/glyphh-ai/rrotor/tree/main/docs/self-hosting). Add the address in Claude's Connectors once, with
+one Allow click. Ada is in every plan; Glyphh never charges per seat, per model or per install
+(https://glyphh.ai/pricing). Your own software calls the same runtime with the SDKs in this repository, `glyphh` on
+PyPI and `@glyphh-ai/glyphh` on npm.
+
+## The file ledger
+
+The plugin keeps a ledger on your machine (`~/.glyphh/ledger/ledger.sqlite`, Python's standard library only,
+nothing sent anywhere): every change Claude makes to a file is recorded with the request it served, and when Claude
+reads that file again, in this session or a later one, after a compaction or not, the last changes come back as
+context. On every prompt it lists the files the session changed in its last turns. Why a ledger and not a search:
+`benchmarks/session` in `glyphh-ai/rrotor` measured 180 real sessions; what a turn needs from earlier turns is the
+last touch of each file it works on, which recency recovers a third of and a search by the request a seventh.
+
+The ledger is three command hooks in `hooks/hooks.json`, beside the account's hooks module in the same file
+(`modules` and `hooks` together): `PostToolUse` on Edit, Write and MultiEdit (`ledger.py record`), `PostToolUse` on
+Read (`ledger.py recall`) and `UserPromptSubmit` (`ledger.py prompt`). It needs `python3`; `GLYPHH_HOME` moves
+`~/.glyphh`.
 
 ## Commands
 
@@ -54,7 +94,7 @@ IOPlatformUUID (`ioreg`), Linux's `/etc/machine-id`, Windows' MachineGuid (or
 `wmic csproduct get uuid`); else the default route's interface's MAC; else a
 random id kept once in `~/.glyphh/machine.json`. Worked out once per process.
 
-**Server:** `GLYPHH_SERVER_URL`, default `http://localhost:8080`. Every call
+**Server:** `GLYPHH_SERVER_URL`, default `https://api.glyphh.ai` (set it to `http://localhost:8080` for a local server). Every call
 but the device flow's and the plans list carries `Authorization: Bearer
 <install token>`.
 
@@ -104,7 +144,7 @@ Mods ("function hooks") are early access in Claude Code 2.1.x, hence the
 variable.
 
 ```bash
-CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 claude --plugin-dir ~/development/glyphh/glyphh
+CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 claude --plugin-dir plugins/glyphh
 ```
 
 In the Claude desktop app, link the folder into the session's mods folder
@@ -143,6 +183,8 @@ call and the mod asks Claude to open it, a turn slower):
 | `mcp/card/sign-in.html` · `mcp-app.js` | The card · `@modelcontextprotocol/ext-apps` 2.0.3's bridge, vendored |
 | `mcp/build.sh` · `dist/server.mjs` | The build · its output, committed |
 | `skills/glyphh-sign-in/SKILL.md` | Tells Claude to call `glyphh_sign_in` when asked to sign in |
+| `skills/ada/SKILL.md` | Ada: build, deploy and call models on the runtime's connector |
+| `hooks/ledger.py` | The file ledger's three command hooks |
 | `types/index.d.ts` | The account's types and the mod's `$.state` contract |
 | `tests/glyphh-*.test.ts` | Tests on a fake server (`fake-server.ts`) and a fake host (`fake-host.ts`), no network: the client, the license, device-flow polling, limit errors, each section's actions, the machine id, the card's flow, and the panel through the engine on both surfaces |
 | `mcp/test/install.test.mjs` | `node --test mcp/test`: install.json's mode and atomic write, the machine probe on this machine |
@@ -150,9 +192,9 @@ call and the mod asks Claude to open it, a turn slower):
 ## Test
 
 ```bash
-CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 claude plugin test ~/development/glyphh/glyphh
-claude plugin validate ~/development/glyphh/glyphh
-node --test mcp/test
+CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 claude plugin test plugins/glyphh
+claude plugin validate plugins/glyphh
+(cd plugins/glyphh && node --test mcp/test)
 ```
 
 ## What we learned

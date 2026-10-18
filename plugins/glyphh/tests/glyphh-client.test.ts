@@ -8,7 +8,7 @@ import { HOME, fakeHost } from './fake-host'
 
 const signIn = async (w: ReturnType<typeof fakeHost>) => signedIn(w.gh, 'i1', w.server.TOKEN)
 
-test('client: localhost:8080 by default, GLYPHH_SERVER_URL when set, the install token as bearer', async () => {
+test('client: api.glyphh.ai by default, GLYPHH_SERVER_URL when set, the install token as bearer', async () => {
   const w = fakeHost()
   await expect(api(w.gh, 'GET', '/v1/me')).rejects.toThrow('Not signed in.')
   expect(w.s.calls).toHaveLength(0) // no token, no call
@@ -17,7 +17,7 @@ test('client: localhost:8080 by default, GLYPHH_SERVER_URL when set, the install
   const fetch = w.gh.http.fetch
   w.gh.http.fetch = (url, init) => (urls.push(url), fetch(url, init))
   await api(w.gh, 'GET', '/v1/me')
-  expect(urls.at(-1)).toBe('http://localhost:8080/v1/me')
+  expect(urls.at(-1)).toBe('https://api.glyphh.ai/v1/me')
   expect(w.s.calls.at(-1)?.bearer).toBe(w.server.TOKEN)
 
   const other = fakeHost({ server: 'https://api.glyphh.test/' })
@@ -47,7 +47,7 @@ test('client: an unreachable server says where it looked', async () => {
     throw new Error('ECONNREFUSED')
   }
   const err = await api(w.gh, 'GET', '/v1/plans', undefined, { auth: false }).catch(e => e)
-  expect(describe(err)).toBe('Cannot reach the Glyphh server at http://localhost:8080.')
+  expect(describe(err)).toBe('Cannot reach the Glyphh server at https://api.glyphh.ai.')
 })
 
 test('storage: install.json is written 0600 through the umask writer, never fs.write', async () => {

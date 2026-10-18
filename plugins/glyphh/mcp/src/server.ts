@@ -46,7 +46,7 @@ async function http(method: string, url: string, body?: unknown, bearer?: string
 function deps(): Deps {
   const path = installPath()
   return {
-    server: (process.env.GLYPHH_SERVER_URL?.trim() || 'http://localhost:8080').replace(/\/+$/, ''),
+    server: (process.env.GLYPHH_SERVER_URL?.trim() || 'https://api.glyphh.ai').replace(/\/+$/, ''),
     http,
     now: () => Date.now(),
     install: () => readInstall(path),
@@ -95,7 +95,7 @@ function openTool(server: McpServer) {
   // The card's Sign in button: the host may not open links (or not localhost
   // ones), so this machine opens the approval page in its own browser. Only
   // the Glyphh server's own sign-in page, never an arbitrary address.
-  const base = (process.env.GLYPHH_SERVER_URL || 'http://localhost:8080').replace(/\/$/, '')
+  const base = (process.env.GLYPHH_SERVER_URL || 'https://api.glyphh.ai').replace(/\/$/, '')
   const _meta = { ui: { resourceUri: CARD_URI, visibility: ['app'] } }
   const inputSchema = { url: z.string() }
   server.registerTool('glyphh_sign_in_open', { title: 'Open the Glyphh sign-in page', description: 'Opens the sign-in page in this machine\'s browser. Called by the card.', inputSchema, _meta }, async ({ url }) => {

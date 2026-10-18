@@ -1,9 +1,11 @@
 {
   "name": "glyphh",
-  "version": "0.2.0",
+  "version": "1.0.0",
+  "description": "Glyphh for Claude: your Glyphh account and the sign-in card, the Ada skill that builds, deploys and calls typed models on your own runtime (hosted or self-hosted), and the file ledger. Ada is in every plan.",
   "author": {
-    "name": "Glyphh"
+    "name": "Glyphh AI",
+    "url": "https://glyphh.ai"
   },
-  "description": "Glyphh for Claude: your account and the sign-in card",
+  "homepage": "https://github.com/glyphh-ai/glyphh",
   "types": "./types/index.d.ts"
 }

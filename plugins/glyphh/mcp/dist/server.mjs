@@ -24027,7 +24027,7 @@ async function http(method, url, body2, bearer) {
 function deps() {
   const path = installPath();
   return {
-    server: (process.env.GLYPHH_SERVER_URL?.trim() || "http://localhost:8080").replace(/\/+$/, ""),
+    server: (process.env.GLYPHH_SERVER_URL?.trim() || "https://api.glyphh.ai").replace(/\/+$/, ""),
     http,
     now: () => Date.now(),
     install: () => readInstall(path),
@@ -24066,7 +24066,7 @@ async function openInClaude(url) {
   execFile2(process.platform === "darwin" ? "open" : process.platform === "win32" ? "explorer" : "xdg-open", [url], () => void 0);
 }
 function openTool(server) {
-  const base = (process.env.GLYPHH_SERVER_URL || "http://localhost:8080").replace(/\/$/, "");
+  const base = (process.env.GLYPHH_SERVER_URL || "https://api.glyphh.ai").replace(/\/$/, "");
   const _meta = { ui: { resourceUri: CARD_URI, visibility: ["app"] } };
   const inputSchema = { url: external_exports.string() };
   server.registerTool("glyphh_sign_in_open", { title: "Open the Glyphh sign-in page", description: "Opens the sign-in page in this machine's browser. Called by the card.", inputSchema, _meta }, async ({ url }) => {
