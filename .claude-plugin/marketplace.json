@@ -7,6 +7,12 @@
   },
   "plugins": [
     {
+      "name": "glyphh",
+      "source": "./plugins/glyphh",
+      "description": "Glyphh for Claude: your account and the sign-in card",
+      "version": "0.2.0"
+    },
+    {
       "name": "glyphh-drip",
       "source": "./plugins/glyphh-drip",
       "description": "Glyphh Drip: arcade games and visual effects with sound, played over Claude's window. For Claude Code on a Mac. Free: every game and twenty drips (confetti, fireworks, a matrix rain). Ask Claude and it makes you new ones.",
