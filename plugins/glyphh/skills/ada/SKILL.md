@@ -97,7 +97,7 @@ new error with the nearest precedent's cause, owner and runbook for a cleared ca
    (`pip install glyphh`, `from glyphh import Ada`) and `@glyphh-ai/glyphh` for TypeScript and JavaScript
    (`npm i @glyphh-ai/glyphh`), both in `glyphh-ai/glyphh`; or `POST /v1/runs` at the runtime's own address
    (`https://<machine>.glyphh.app` or `https://<host>`). `glyphh-ada` and `@glyphh-ai/ada` are the old names,
-   deprecated: move to the new ones.
+   removed: use the new ones.
 
 ## Tuning
 

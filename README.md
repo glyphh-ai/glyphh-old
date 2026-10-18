@@ -69,8 +69,8 @@ A call is `POST /v1/runs` `{model, function, inputs, version?, clearance?}` at t
 
 ### New names in 3.0.0
 
-The SDKs were `glyphh-ada` (PyPI) and `@glyphh-ai/ada` (npm), in `glyphh-ai/ada`. They are **deprecated**; the
-packages are now `glyphh` and `@glyphh-ai/glyphh`, here, with the same API: change the install and the import
+The SDKs were `glyphh-ada` (PyPI) and `@glyphh-ai/ada` (npm), in `glyphh-ai/ada`. Both are
+removed from the registries; the packages are now `glyphh` and `@glyphh-ai/glyphh`, here, with the same API: change the install and the import
 (`from glyphh_ada import Ada` becomes `from glyphh import Ada`).
 
 They start at **3.0.0** because the PyPI name `glyphh` was already Glyphh's: up to 2.6.7 it is the old HDC runtime

@@ -41,8 +41,8 @@ The name `glyphh` on PyPI is Glyphh's already: up to 2.6.7 it was the old HDC ru
 library with a different API. 3.0.0 is a major version so that nothing pinned to `glyphh<3` picks this up by
 surprise: code written for 2.x does not run on 3.x. Pin `glyphh>=3` for this SDK.
 
-`glyphh-ada` is deprecated and gets no new versions: `pip uninstall glyphh-ada && pip install glyphh`, then change
-`glyphh_ada` to `glyphh` in your imports.
+`glyphh-ada` is removed from PyPI: `pip uninstall glyphh-ada && pip install glyphh`, then change `glyphh_ada` to
+`glyphh` in your imports.
 
 ## License
 
