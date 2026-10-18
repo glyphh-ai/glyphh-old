@@ -10,7 +10,7 @@
   "engines": { "node": ">=18" },
   "scripts": {
     "build": "tsc -p .",
-    "test": "npm run build && node --test test/"
+    "test": "npm run build && node --test test/*.test.mjs"
   },
   "keywords": ["glyphh", "ada", "typed", "deterministic", "precedent", "decision"],
   "homepage": "https://glyphh.ai",

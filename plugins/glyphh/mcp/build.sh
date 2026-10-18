@@ -1,5 +1,5 @@
 #!/bin/sh
-# Builds dist/server.mjs, one file with its dependencies inside, so the plugin
+# Builds dist/server.mjs (dependencies pinned by package-lock.json, so every build is the same), one file with its dependencies inside, so the plugin
 # runs it with plain `node` and no install step. The sources are copied to a
 # folder outside the plugin (it is live-loaded) and built there, with the
 # one mod module the server shares (hooks/glyphh/machine.ts):
@@ -7,10 +7,10 @@
 set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 WORK=${GLYPHH_MCP_BUILD:-$(mktemp -d)}
-cp "$HERE/package.json" "$WORK/"
+cp "$HERE/package.json" "$HERE/package-lock.json" "$WORK/"
 rm -rf "$WORK/src" "$WORK/mcp" "$WORK/hooks" && mkdir -p "$WORK/mcp" "$WORK/hooks/glyphh"
 cp -R "$HERE/src" "$WORK/mcp/src" && cp "$HERE/../hooks/glyphh/machine.ts" "$WORK/hooks/glyphh/"
-(cd "$WORK" && npm install --silent --no-audit --no-fund)
+(cd "$WORK" && npm ci --silent --no-audit --no-fund)
 cat > "$WORK/tsconfig.json" <<JSON
 { "compilerOptions": { "target": "es2023", "lib": ["es2023"], "module": "esnext", "moduleResolution": "bundler",
   "strict": true, "noEmit": true, "skipLibCheck": true, "types": ["node"] },
