@@ -1,8 +1,14 @@
 name: Publish the SDKs
 
-# A tag `sdk-v<version>` publishes @glyphh-ai/ada to npm and glyphh-ada to PyPI.
+# A tag `sdk-v<version>` publishes @glyphh-ai/glyphh to npm and glyphh to PyPI.
 # Both go through Trusted Publishing: the job's GitHub identity signs the
 # publish, so no token is stored. The tag must be the version in both packages.
+#
+# Set up once by hand: on PyPI, a trusted publisher for the project `glyphh`
+# (owner glyphh-ai, repository glyphh, workflow publish.yml, environment pypi);
+# on npm, a trusted publisher for @glyphh-ai/glyphh (the same repository and
+# workflow, environment npm); and the environments `pypi` and `npm` in this
+# repository's settings.
 
 on:
   push:
@@ -20,7 +26,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -33,7 +39,7 @@ jobs:
       - name: TypeScript
         working-directory: sdk/typescript
         run: |
-          npm install
+          npm ci
           npm test
       - name: Python
         working-directory: sdk/python
@@ -45,6 +51,9 @@ jobs:
     needs: test
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/@glyphh-ai/glyphh
     permissions:
       contents: read
       id-token: write
@@ -52,21 +61,24 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           registry-url: https://registry.npmjs.org
       - run: npm i -g npm@11
       - working-directory: sdk/typescript
         run: |
-          npm install
+          npm ci
           npm run build
           v="$(node -p "require('./package.json').version")"
-          if npm view "@glyphh-ai/ada@${v}" version >/dev/null 2>&1; then echo "@glyphh-ai/ada@${v} is already on npm"; exit 0; fi
+          if npm view "@glyphh-ai/glyphh@${v}" version >/dev/null 2>&1; then echo "@glyphh-ai/glyphh@${v} is already on npm"; exit 0; fi
           npm publish --access public --provenance
 
   pypi:
     needs: test
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/glyphh
     permissions:
       contents: read
       id-token: write
@@ -82,3 +94,4 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           packages-dir: sdk/python/dist
+          skip-existing: true
