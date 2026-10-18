@@ -1,16 +1,16 @@
 {
   "name": "glyphh",
-  "description": "Glyphh mods for Claude",
+  "description": "Glyphh for Claude: the glyphh plugin",
   "owner": {
     "name": "Glyphh AI",
     "url": "https://glyphh.ai"
   },
   "plugins": [
     {
-      "name": "glyphh-drip",
-      "source": "./plugins/glyphh-drip",
-      "description": "Glyphh Drip: arcade games and visual effects with sound, played over Claude's window. For Claude Code on a Mac. Free: every game and twenty drips (confetti, fireworks, a matrix rain). Ask Claude and it makes you new ones.",
-      "version": "1.12.0"
+      "name": "glyphh",
+      "source": "./plugins/glyphh",
+      "description": "Glyphh for Claude: your Glyphh account and the sign-in card, the Ada skill that builds, deploys and calls typed models on your own runtime (hosted or self-hosted), and the file ledger. Ada is in every plan.",
+      "version": "1.0.0"
     }
   ]
 }
