@@ -1,5 +1,5 @@
 // The plugin's MCP server (stdio): glyphh_sign_in shows the sign-in card,
-// an MCP App at ui://glyphh/sign-in/3; the card polls glyphh_sign_in_status.
+// an MCP App at ui://glyphh/sign-in/6; the card polls glyphh_sign_in_status.
 // Built to dist/server.mjs by build.sh; .mcp.json at the plugin root starts it.
 import { execFile } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
