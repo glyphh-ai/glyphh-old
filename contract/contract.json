@@ -59,5 +59,25 @@
         "properties": { "code": { "type": "string" }, "message": { "type": "string" } }
       }
     }
+  },
+  "limit_exceeded": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "LimitExceeded",
+    "description": "data of a done Result that indexed nothing: a self-hosted runtime's store is at its licence key's precedent cap",
+    "type": "object",
+    "required": ["status", "indexed", "message"],
+    "properties": {
+      "status": { "const": "limit_exceeded" },
+      "indexed": { "const": false },
+      "message": { "type": "string" },
+      "precedents": { "type": "integer", "minimum": 0 },
+      "cap": { "type": "integer", "minimum": 0 }
+    }
+  },
+  "cluster": {
+    "description": "A clustered self-hosted runtime (rrotor's docs/specs/cluster.md). Every member's answer carries Rrotor-Cluster-Seq; a request may send Rrotor-Min-Seq: <seq> to be answered from a node at least that far. While there is no head: 503 E_NO_HEAD with Retry-After for writes, reads go on. E_NOT_COMMITTED (503): a write kept but not yet held by most voters. E_RUN_LOST (410): the run's node left. E_READ_ONLY: a failed Result, a function marked \"writes\": false that wrote on a follower.",
+    "answer_headers": ["Rrotor-Cluster-Seq", "Retry-After"],
+    "request_headers": ["Rrotor-Min-Seq"],
+    "codes": ["E_NO_HEAD", "E_NOT_COMMITTED", "E_RUN_LOST", "E_READ_ONLY"]
   }
 }
