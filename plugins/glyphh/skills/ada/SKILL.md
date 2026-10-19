@@ -45,7 +45,12 @@ A repo with three files; a version is a commit.
 
 - `glyphh.json`: the manifest. `"needs": ["ada"]`, `"data": true`, and `functions`, each with a JSON Schema of its
   inputs. The example's, to copy: `record {data, outcome?}`, `query {data}`, `facts {data, top?}`,
-  `probabilities {data}`, `learn {sample?}`, `decide {data}`, `settings {changes?}` and `start`.
+  `probabilities {data}`, `learn {sample?}`, `decide {data}`, `settings {changes?}` and `start`. Every function
+  declares `"writes"` beside its `inputs` (`"query": {"description": ..., "inputs": {...}, "writes": false}`):
+  `false` for `query`, `facts` and `probabilities`, which only read the store; `true` for `record`, `learn`,
+  `decide` (it records the answer it asks for), `settings` (it can change them) and `start`, and for any function
+  that records, learns, calibrates or configures. In a cluster a writing function runs on the head and a read on
+  any node; a function marked `false` that writes fails with `E_READ_ONLY`.
 - `spec.json`: what a case looks like. `layers` of `segments` of `roles`; a role is a value (exact match), a
   `text_encoding: "bag_of_words"` text (its words read through the kernel's seeded lexicon, and weighed by
   `learn`), a `numeric_config {min_value, max_value, bin_width}` number, or a key part
