@@ -13,6 +13,7 @@ import glyphh.client
 from glyphh import (
     Ada,
     AdaError,
+    HeadLostError,
     NoHeadError,
     NotCommittedError,
     ReadOnlyError,
@@ -243,7 +244,11 @@ def test_read_your_writes_sends_the_highest_seq_seen_or_nothing_when_off():
 
 @pytest.mark.parametrize(
     ("name", "error"),
-    [("a write most voters do not hold yet", NotCommittedError), ("a run on a node that left the cluster", RunLostError)],
+    [
+        ("a write the head had when it went", HeadLostError),
+        ("a write most voters do not hold yet", NotCommittedError),
+        ("a run on a node that left the cluster", RunLostError),
+    ],
 )
 def test_a_clusters_refusals_are_typed_and_not_sent_again(clock, name, error):
     c = case(name)

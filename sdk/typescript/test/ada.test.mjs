@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { Ada, AdaError, NoHeadError, NotCommittedError, ReadOnlyError, RunLostError, retryAfter } from "../dist/index.js";
+import { Ada, AdaError, HeadLostError, NoHeadError, NotCommittedError, ReadOnlyError, RunLostError, retryAfter } from "../dist/index.js";
 
 const fixtures = JSON.parse(readFileSync(new URL("../../../contract/fixtures.json", import.meta.url), "utf8"));
 const byName = (name) => fixtures.cases.find((c) => c.name === name);
@@ -194,7 +194,7 @@ test("read-your-writes sends the highest seq seen, or nothing when off", async (
   assert.equal(off.ada.clusterSeq, 1042);
 });
 
-for (const [name, error] of [["a write most voters do not hold yet", NotCommittedError], ["a run on a node that left the cluster", RunLostError]]) {
+for (const [name, error] of [["a write the head had when it went", HeadLostError], ["a write most voters do not hold yet", NotCommittedError], ["a run on a node that left the cluster", RunLostError]]) {
   test(`a cluster's refusal is typed and not sent again: ${name}`, async () => {
     const c = byName(name);
     const { slept, clock } = fakeClock();

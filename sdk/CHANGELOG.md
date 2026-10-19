@@ -13,6 +13,7 @@ For a clustered self-hosted runtime (rrotor's [cluster spec](https://github.com/
 - Read-your-writes: the highest `Rrotor-Cluster-Seq` answered is sent as `Rrotor-Min-Seq` on later calls, so a
   read sees the client's writes on whichever node answers it. `read_your_writes=False` / `readYourWrites: false`
   turns it off; `cluster_seq` / `clusterSeq` shows it.
+- `E_HEAD_LOST` (503: the head went while it had the write, which may have been applied) is `HeadLostError`, never retried.
 - Typed errors, each an `AdaError`: `NoHeadError`, `NotCommittedError` (the write is kept: do not resend it),
   `RunLostError` (410), `ReadOnlyError` (a function marked `"writes": false` wrote on a follower; raised from the
   `failed` run).
