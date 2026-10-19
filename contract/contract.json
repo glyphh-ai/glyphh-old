@@ -75,9 +75,9 @@
     }
   },
   "cluster": {
-    "description": "A clustered self-hosted runtime (rrotor's docs/specs/cluster.md). Every member's answer carries Rrotor-Cluster-Seq; a request may send Rrotor-Min-Seq: <seq> to be answered from a node at least that far. While there is no head: 503 E_NO_HEAD with Retry-After for writes, reads go on. E_NOT_COMMITTED (503): a write kept but not yet held by most voters. E_RUN_LOST (410): the run's node left. E_READ_ONLY: a failed Result, a function marked \"writes\": false that wrote on a follower.",
+    "description": "A clustered self-hosted runtime (rrotor's docs/specs/cluster.md). Every member's answer carries Rrotor-Cluster-Seq; a request may send Rrotor-Min-Seq: <seq> to be answered from a node at least that far. While there is no head: 503 E_NO_HEAD with Retry-After for writes, refused before forwarding, so safe to resend; reads go on. E_HEAD_LOST (503, no Retry-After): the head went while it had the write, which may have been applied: not resent. E_NOT_COMMITTED (503): a write kept but not yet held by most voters. E_RUN_LOST (410): the run's node left. E_READ_ONLY: a failed Result, a function marked \"writes\": false that wrote on a follower.",
     "answer_headers": ["Rrotor-Cluster-Seq", "Retry-After"],
     "request_headers": ["Rrotor-Min-Seq"],
-    "codes": ["E_NO_HEAD", "E_NOT_COMMITTED", "E_RUN_LOST", "E_READ_ONLY"]
+    "codes": ["E_NO_HEAD", "E_HEAD_LOST", "E_NOT_COMMITTED", "E_RUN_LOST", "E_READ_ONLY"]
   }
 }

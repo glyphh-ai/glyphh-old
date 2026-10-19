@@ -57,6 +57,11 @@ class NoHeadError(AdaError):
     """E_NO_HEAD (503): the cluster has no head, so it takes no writes; reads go on. Raised once retries are spent."""
 
 
+class HeadLostError(AdaError):
+    """E_HEAD_LOST (503): the head went while it had the write, which may or may not have been applied: never sent
+    again by the client. Check before you resend it."""
+
+
 class NotCommittedError(AdaError):
     """E_NOT_COMMITTED (503): most voters do not hold the write yet. It is kept, and committed when they come back:
     do not send it again."""
@@ -73,6 +78,7 @@ class ReadOnlyError(AdaError):
 
 TYPED: Dict[str, Type[AdaError]] = {
     "E_NO_HEAD": NoHeadError,
+    "E_HEAD_LOST": HeadLostError,
     "E_NOT_COMMITTED": NotCommittedError,
     "E_RUN_LOST": RunLostError,
     "E_READ_ONLY": ReadOnlyError,
@@ -159,9 +165,9 @@ def _retry_after(value: Optional[str]) -> Optional[float]:
 
 
 def _retryable(err: AdaError, read: bool) -> bool:
-    """E_NO_HEAD, any call: the cluster spec has the SDKs retry it (a follower with no head refuses a write before
-    forwarding it). A read, also when the runtime could not be reached or a proxy in front of it answered 502, 503 or
-    504. A write that may have been applied (E_UNREACHABLE, E_NOT_COMMITTED) is never sent again."""
+    """E_NO_HEAD, any call: refused before it was forwarded, so nothing ran. A read, also when the runtime could not
+    be reached or a proxy in front of it answered 502, 503 or 504. A write that may have been applied (E_UNREACHABLE,
+    E_HEAD_LOST, E_NOT_COMMITTED) is never sent again."""
     if err.code == "E_NO_HEAD":
         return True
     return read and (err.code == "E_UNREACHABLE" or (err.code == "E_RUNTIME" and err.status in (502, 503, 504)))

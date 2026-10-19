@@ -92,6 +92,11 @@ export class NoHeadError extends AdaError {
   override name = "NoHeadError";
 }
 
+/** E_HEAD_LOST (503): the head went while it had the write, which may or may not have been applied: never sent again by the client. */
+export class HeadLostError extends AdaError {
+  override name = "HeadLostError";
+}
+
 /** E_NOT_COMMITTED (503): most voters do not hold the write yet. It is kept, and committed when they come back: do not send it again. */
 export class NotCommittedError extends AdaError {
   override name = "NotCommittedError";
@@ -112,6 +117,7 @@ export class ReadOnlyError extends AdaError {
 
 const TYPED: Record<string, typeof AdaError> = {
   E_NO_HEAD: NoHeadError,
+  E_HEAD_LOST: HeadLostError,
   E_NOT_COMMITTED: NotCommittedError,
   E_RUN_LOST: RunLostError,
   E_READ_ONLY: ReadOnlyError,
@@ -129,9 +135,9 @@ export function retryAfter(value: string | undefined): number | undefined {
 }
 
 /**
- * E_NO_HEAD, any call: the cluster spec has the SDKs retry it (a follower with no head refuses a write before
- * forwarding it). A read, also when the runtime could not be reached or a proxy in front of it answered 502, 503 or
- * 504. A write that may have been applied (E_UNREACHABLE, E_NOT_COMMITTED) is never sent again.
+ * E_NO_HEAD, any call: refused before it was forwarded, so nothing ran. A read, also when the runtime could not be
+ * reached or a proxy in front of it answered 502, 503 or 504. A write that may have been applied (E_UNREACHABLE,
+ * E_HEAD_LOST, E_NOT_COMMITTED) is never sent again.
  */
 function retryable(err: AdaError, read: boolean): boolean {
   if (err.code === "E_NO_HEAD") return true;

@@ -38,7 +38,7 @@ In a cluster (self-hosted rrotor, several nodes behind a load balancer) the clie
   that may have been applied is never sent again.
 - sends the highest `Rrotor-Cluster-Seq` it has seen as `Rrotor-Min-Seq`, so reads see its writes on any node
   (`readYourWrites: false` to stop; `ada.clusterSeq` shows it).
-- throws `NoHeadError`, `NotCommittedError` (the write is kept and commits later: do not resend it), `RunLostError`
+- throws `NoHeadError`, `HeadLostError` (the head went with the write, which may have been applied: check before resending), `NotCommittedError` (the write is kept and commits later: do not resend it), `RunLostError`
   (the run's node left) and `ReadOnlyError` (a function marked `"writes": false` wrote), each an `AdaError`.
 
 A self-hosted `record` past the licence key's precedent cap is `done` with `r.limit_exceeded` true: nothing was

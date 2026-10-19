@@ -54,6 +54,11 @@
       }
     },
     {
+      "name": "a write the head had when it went",
+      "request": { "method": "POST", "path": "/v1/runs", "body": { "model": "incidents", "function": "record", "inputs": { "data": { "error": { "what": { "class": "TimeoutError" } } }, "outcome": "raise circuit breaker" } } },
+      "response": { "status": 503, "body": { "error": { "code": "E_HEAD_LOST", "message": "The head went while this request was with it: the write may or may not have been applied." } } }
+    },
+    {
       "name": "a write most voters do not hold yet",
       "request": { "method": "POST", "path": "/v1/runs", "body": { "model": "incidents", "function": "record", "inputs": { "data": { "error": { "what": { "class": "TimeoutError" } } }, "outcome": "raise circuit breaker" } } },
       "response": { "status": 503, "body": { "error": { "code": "E_NOT_COMMITTED", "message": "Most voters do not hold this write yet: it is kept, and committed when they come back." } } }
