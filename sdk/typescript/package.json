@@ -1,6 +1,6 @@
 {
   "name": "@glyphh-ai/glyphh",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "Ada for TypeScript and JavaScript: typed models in your own Glyphh runtime, called by your software with a runtime key.",
   "type": "module",
   "main": "./dist/index.js",
