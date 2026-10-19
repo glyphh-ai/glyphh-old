@@ -15,7 +15,7 @@ path, and the model says when it does not know. Nothing of Glyphh's sees the dat
 The user's runtime is a connector in Claude, at one of two addresses:
 
 - **Hosted by Glyphh:** `https://<machine>.glyphh.app/mcp`, a machine made and started on the Glyphh platform
-  (https://platform.glyphh.ai), whose Home page shows the address to add.
+  (https://platform.glyphh.ai), whose Machines page shows the address to add.
 - **Self-hosted:** `https://<host>/mcp`, a rrotor the user runs on their own infrastructure (Docker Compose, Helm,
   Terraform: https://github.com/glyphh-ai/rrotor/tree/main/docs/self-hosting), registered on the platform under its
   public address. TLS is the owner's; the address is theirs.
@@ -27,7 +27,7 @@ the runtime signs the user in through Glyphh, and no key is typed. Its tools are
 |---|---|
 | `models_list` | The models deployed: versions, the active one, its functions |
 | `model_deploy` `{repo, commit, token?}` | A commit of a model's GitHub repo as its next version |
-| `model_call` `{model, function, inputs, version?, clearance?}` | Run a function: the first Result, with its data |
+| `model_call` `{model, function?, inputs?, version?, clearance?}` | Run a function (`start` by default): the first Result, with its data |
 | `model_continue` `{run_id, answer}` | Answer a run that waits (`needs_input`, `needs_approval`) |
 | `model_cancel` `{run_id}` | Stop a run |
 | `run_status`, `run_log` `{run_id}` | A run's status and last Result; its log lines |
@@ -44,8 +44,8 @@ is refused with `E_LIMIT_PRECEDENTS`. Never ask for a key or a token; the connec
 A repo with three files; a version is a commit.
 
 - `glyphh.json`: the manifest. `"needs": ["ada"]`, `"data": true`, and `functions`, each with a JSON Schema of its
-  inputs. Every Ada model has `record {data, outcome?}`, `query {data}`, `facts {data, top?}`,
-  `probabilities {data}`, `learn {sample?}`, `decide {data}` and `start`.
+  inputs. The example's, to copy: `record {data, outcome?}`, `query {data}`, `facts {data, top?}`,
+  `probabilities {data}`, `learn {sample?}`, `decide {data}`, `settings {changes?}` and `start`.
 - `spec.json`: what a case looks like. `layers` of `segments` of `roles`; a role is a value (exact match), a
   `text_encoding: "bag_of_words"` text (its words read through the kernel's seeded lexicon, and weighed by
   `learn`), a `numeric_config {min_value, max_value, bin_width}` number, or a key part
@@ -93,11 +93,10 @@ new error with the nearest precedent's cause, owner and runbook for a cleared ca
 6. Try it: `model_call query` and `decide` with new cases; `facts` to show why. Tune the levers live with
    `model_call settings {changes}` (below, Tuning); change the costs, the secured layers and the shape in
    `spec.json` and redeploy.
-7. Software calls it with a runtime key (made on the platform's Keys page) through the SDKs, `glyphh` for Python
-   (`pip install glyphh`, `from glyphh import Ada`) and `@glyphh-ai/glyphh` for TypeScript and JavaScript
+7. Software calls it with a runtime key (made on the platform's API Keys page) through the SDKs, `glyphh` for
+   Python (`pip install glyphh`, `from glyphh import Ada`) and `@glyphh-ai/glyphh` for TypeScript and JavaScript
    (`npm i @glyphh-ai/glyphh`), both in `glyphh-ai/glyphh`; or `POST /v1/runs` at the runtime's own address
-   (`https://<machine>.glyphh.app` or `https://<host>`). `glyphh-ada` and `@glyphh-ai/ada` are the old names,
-   removed: use the new ones.
+   (`https://<machine>.glyphh.app` or `https://<host>`).
 
 ## Tuning
 

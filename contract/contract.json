@@ -3,7 +3,7 @@
   "result": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "Result",
-    "description": "What a run of a model's function answers, from POST /v1/runs, /continue, /cancel and GET /v1/runs/{id}",
+    "description": "What a run of a model's function answers, from POST /v1/runs, /v1/runs/{id}/continue and /v1/runs/{id}/cancel",
     "type": "object",
     "required": ["run_id", "model", "version", "function", "status", "data", "step", "prompt", "seconds"],
     "properties": {
