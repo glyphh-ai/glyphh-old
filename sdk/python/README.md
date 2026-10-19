@@ -1,6 +1,7 @@
 # glyphh
 
-Ada for Python. Your models live in your Glyphh runtime; this calls them at the runtime's address with a runtime key.
+Ada for Python: calls the Ada models in your Glyphh runtime, at its address, with a runtime key. Python 3.9 or later,
+no dependencies.
 
 ```bash
 pip install glyphh
@@ -22,27 +23,20 @@ elif r.waiting:                        # needs_input or needs_approval: r.prompt
 bot = incidents.query({...}, clearance=0.5)   # a caller who may not see the secured layers
 ```
 
-`GLYPHH_RUNTIME_URL` is the runtime's own address: `https://<machine>.glyphh.app` for one Glyphh hosts, or
-`https://<host>` for one you host yourself. The key is made on the platform's Keys page (https://platform.glyphh.ai).
+`GLYPHH_RUNTIME_URL` is the runtime's address: `https://<machine>.glyphh.app` (hosted) or `https://<host>`
+(self-hosted). The key is made on the platform's API Keys page (https://platform.glyphh.ai).
 
-`Ada.models()`, `Ada.deploy(repo, commit)`, `Ada.run(run_id)`, `Ada.log(run_id)`, `Ada.cancel(run_id)`;
-`Model.call(function, inputs, version=, clearance=)` reaches any function. A refusal raises `AdaError(code, message,
-status)`: `E_AUTH`, `E_LIMIT`, `E_MODEL_MISSING`,
-`E_RUN_MISSING`, `E_BAD_REQUEST`, `E_UNREACHABLE`. On a hosted runtime, a `record` past the plan's managed
-precedents is a `failed` run whose `data.code` is `E_LIMIT_PRECEDENTS`. The contract both SDKs are tested against is
-`../../contract`.
+| | |
+|---|---|
+| `Ada` | `models()`, `deploy(repo, commit, token=None)`, `model(name)`, `run(run_id)`, `log(run_id)`, `resume(run_id, answer)`, `cancel(run_id)` |
+| `Model` | `record(data, outcome=None)`, `query`, `facts(top=)`, `probabilities`, `decide`, `learn(sample=)`, each with `clearance=`; `call(function, inputs, version=, clearance=)` for any function; `resume(run_id, answer)` |
+| `Result` | `run_id`, `model`, `version`, `function`, `status`, `data`, `step`, `prompt`, `seconds`; `done`, `waiting`, `ended` |
+| `AdaError` | `code`, `message`, `status`: the runtime's code (`E_AUTH`, `E_LIMIT`, `E_MODEL_MISSING`, `E_RUN_MISSING`, `E_BAD_REQUEST`, ...), `E_UNREACHABLE` or `E_CONFIG` |
 
-## 3.0.0: a new name, and a break
+On a hosted runtime, a `record` past the plan's managed precedents is a `failed` run whose `data.code` is
+`E_LIMIT_PRECEDENTS`. The routes and the contract are in the [repository's README](https://github.com/glyphh-ai/glyphh#the-runtimes-rest-api).
 
-This package was `glyphh-ada` (`from glyphh_ada import Ada`) up to 0.4.0; it is `glyphh` now
-(`from glyphh import Ada`). The API is the same; only the name and the import changed.
-
-The name `glyphh` on PyPI is Glyphh's already: up to 2.6.7 it was the old HDC runtime (`glyphh-runtime`), a different
-library with a different API. 3.0.0 is a major version so that nothing pinned to `glyphh<3` picks this up by
-surprise: code written for 2.x does not run on 3.x. Pin `glyphh>=3` for this SDK.
-
-`glyphh-ada` is removed from PyPI: `pip uninstall glyphh-ada && pip install glyphh`, then change `glyphh_ada` to
-`glyphh` in your imports.
+Pin `glyphh>=3`: versions up to 2.6.7 are a different, older library.
 
 ## License
 
