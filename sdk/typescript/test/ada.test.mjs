@@ -3,19 +3,31 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { Ada, AdaError } from "../dist/index.js";
+import { Ada, AdaError, HeadLostError, NoHeadError, NotCommittedError, ReadOnlyError, RunLostError, retryAfter } from "../dist/index.js";
 
 const fixtures = JSON.parse(readFileSync(new URL("../../../contract/fixtures.json", import.meta.url), "utf8"));
 const byName = (name) => fixtures.cases.find((c) => c.name === name);
+const answered = (response) => [response.status, response.body, response.headers ?? {}];
 
+/** No real waiting: the client's sleeps recorded, its clock moved by them. */
+function fakeClock() {
+  const slept = [];
+  let now = 0;
+  return { slept, clock: { now: () => now, sleep: async (s) => { slept.push(s); now += s; } } };
+}
+
+/** A runtime that answers from a script of [status, body] or [status, body, headers]; an Error is thrown. */
 function fake(...answers) {
+  const options = answers.length && !Array.isArray(answers.at(-1)) && !(answers.at(-1) instanceof Error) ? answers.pop() : {};
   const calls = [];
   const transport = async (method, url, headers, body) => {
     calls.push({ method, url, headers, body: body === undefined ? undefined : JSON.parse(body) });
-    const [status, answer] = answers.shift();
-    return { status, body: JSON.stringify(answer) };
+    const next = answers.shift();
+    if (next instanceof Error) throw next;
+    const [status, answer, got] = next;
+    return got === undefined ? { status, body: JSON.stringify(answer) } : { status, body: JSON.stringify(answer), headers: got };
   };
-  return { ada: new Ada({ url: "https://m1.glyphh.app/", key: "glyphh_rk_test", transport }), calls };
+  return { ada: new Ada({ url: "https://m1.glyphh.app/", key: "glyphh_rk_test", transport, ...options }), calls };
 }
 
 test("a decide that is done, with a clearance", async () => {
@@ -99,9 +111,9 @@ test("the runtime and the rest of the api", async () => {
 });
 
 test("an answer that is not json, no code, and a runtime that cannot be reached", async () => {
-  const broken = new Ada({ url: "https://m1.glyphh.app", key: "k", transport: async () => ({ status: 502, body: "<html>" }) });
+  const broken = new Ada({ url: "https://m1.glyphh.app", key: "k", retryDeadline: 0, transport: async () => ({ status: 502, body: "<html>" }) });
   await assert.rejects(broken.models(), (e) => e.code === "E_RUNTIME" && e.status === 502);
-  const gone = new Ada({ url: "https://m1.glyphh.app", key: "k", transport: async () => { throw new Error("no route"); } });
+  const gone = new Ada({ url: "https://m1.glyphh.app", key: "k", retryDeadline: 0, transport: async () => { throw new Error("no route"); } });
   await assert.rejects(gone.models(), (e) => e.code === "E_UNREACHABLE");
   for (const [status, code] of [[401, "E_AUTH"], [402, "E_LIMIT"], [404, "E_NOT_FOUND"]]) {
     const a = new Ada({ url: "https://m1.glyphh.app", key: "k", transport: async () => ({ status, body: "{}" }) });
@@ -116,4 +128,115 @@ test("the address and key are needed", () => {
   process.env.GLYPHH_RUNTIME_URL = "https://m2.glyphh.app/";
   process.env.GLYPHH_RUNTIME_KEY = "glyphh_rk_env";
   assert.equal(new Ada().url, "https://m2.glyphh.app");
+});
+
+// A cluster (rrotor's docs/specs/cluster.md)
+
+test("no head is retried as Retry-After says, and the seq is kept", async () => {
+  const c = byName("a write while the cluster has no head, sent again");
+  const { slept, clock } = fakeClock();
+  const { ada, calls } = fake(answered(c.response), answered(c.response), answered(c.then.response), { clock });
+  const r = await ada.model("incidents").record(c.request.body.inputs.data, "raise circuit breaker");
+  assert.equal(r.status, "done");
+  assert.deepEqual(r.data, { id: "a1b2c3" });
+  assert.deepEqual(slept, [2, 2]);
+  assert.deepEqual(calls.map((k) => k.body), [c.request.body, c.request.body, c.request.body]);
+  assert.equal(ada.clusterSeq, 1042);
+});
+
+test("no head past the deadline is a NoHeadError", async () => {
+  const c = byName("a write while the cluster has no head, sent again");
+  const { slept, clock } = fakeClock();
+  const { ada, calls } = fake(...Array(6).fill(answered(c.response)), { clock, retryDeadline: 9 });
+  await assert.rejects(ada.model("incidents").record({ a: 1 }), (e) => {
+    assert.ok(e instanceof NoHeadError && e instanceof AdaError);
+    assert.deepEqual([e.code, e.status, e.retryAfter, e.name], ["E_NO_HEAD", 503, 2, "NoHeadError"]);
+    return true;
+  });
+  assert.deepEqual(slept, [2, 2, 2, 2]);
+  assert.equal(calls.length, 5);
+  const once = fake(answered(c.response), { clock, retryDeadline: 0 });
+  await assert.rejects(once.ada.model("incidents").record({ a: 1 }), NoHeadError);
+  assert.equal(once.calls.length, 1);
+});
+
+test("a read is sent again when the runtime cannot be reached, and a write is not", async () => {
+  const { slept, clock } = fakeClock();
+  const q = fake(new Error("reset"), [502, {}], answered(byName("a query").response), { clock });
+  assert.equal((await q.ada.model("incidents").query({ a: 1 })).data.top, "rotate certificate");
+  assert.equal(q.calls.length, 3);
+  assert.ok(slept.length === 2 && slept[0] >= 0.125 && slept[0] <= 0.25 && slept[1] >= 0.25 && slept[1] <= 0.5);
+  const g = fake(new Error("reset"), [200, { models: [] }], { clock });
+  assert.deepEqual(await g.ada.models(), []);
+  const w = fake(new Error("reset"), { clock });
+  await assert.rejects(w.ada.model("incidents").record({ a: 1 }), (e) => e.code === "E_UNREACHABLE");
+  assert.equal(w.calls.length, 1);
+  const resumed = fake(new Error("reset"), { clock });
+  await assert.rejects(resumed.ada.resume("r1", "yes"));
+  assert.equal(resumed.calls.length, 1);
+});
+
+test("read-your-writes sends the highest seq seen, or nothing when off", async () => {
+  const c = byName("a read after a write, on another node");
+  const { ada, calls } = fake(answered(c.response), answered(c.then.response), [200, { models: [] }, { "Rrotor-Cluster-Seq": "7" }]);
+  const m = ada.model("incidents");
+  await m.record(c.request.body.inputs.data, "raise circuit breaker");
+  assert.equal(calls[0].headers["rrotor-min-seq"], undefined);
+  const r = await m.query(c.then.request.body.inputs.data);
+  assert.equal(r.data.top, "raise circuit breaker");
+  assert.equal(calls[1].headers["rrotor-min-seq"], c.then.request.headers["Rrotor-Min-Seq"]);
+  await ada.models();
+  assert.equal(ada.clusterSeq, 1042); // never lowered by a node further behind
+  const off = fake(answered(c.response), answered(c.then.response), { readYourWrites: false });
+  await off.ada.model("incidents").record({ a: 1 });
+  await off.ada.model("incidents").query({ a: 1 });
+  assert.equal(off.calls[1].headers["rrotor-min-seq"], undefined);
+  assert.equal(off.ada.clusterSeq, 1042);
+});
+
+for (const [name, error] of [["a write the head had when it went", HeadLostError], ["a write most voters do not hold yet", NotCommittedError], ["a run on a node that left the cluster", RunLostError]]) {
+  test(`a cluster's refusal is typed and not sent again: ${name}`, async () => {
+    const c = byName(name);
+    const { slept, clock } = fakeClock();
+    const { ada, calls } = fake(answered(c.response), { clock });
+    const call = c.request.path === "/v1/runs" ? ada.model("incidents").record({ a: 1 }) : ada.resume("rrotor-2~9b0d", "rotate certificate");
+    await assert.rejects(call, (e) => {
+      assert.ok(e instanceof error && e instanceof AdaError);
+      assert.deepEqual([e.code, e.status], [c.response.body.error.code, c.response.status]);
+      return true;
+    });
+    assert.equal(calls.length, 1);
+    assert.deepEqual(slept, []);
+  });
+}
+
+test("a reading function that wrote is a ReadOnlyError", async () => {
+  const c = byName("a reading function that wrote, on a follower");
+  const { ada } = fake(answered(c.response));
+  await assert.rejects(ada.model("incidents").query({ a: 1 }), (e) => {
+    assert.ok(e instanceof ReadOnlyError);
+    assert.equal(e.code, "E_READ_ONLY");
+    assert.match(e.message, /writes/);
+    assert.deepEqual(e.detail, { run_id: "rrotor-1~c3", function: "query" });
+    return true;
+  });
+});
+
+test("a record past the cap is done and says limit_exceeded", async () => {
+  const c = byName("a record past the precedent cap");
+  const { ada } = fake(answered(c.response), answered(byName("a call that is done").response));
+  const r = await ada.model("incidents").record({ a: 1 });
+  assert.equal(r.status, "done");
+  assert.equal(r.limit_exceeded, true);
+  assert.equal(r.data.cap, 50000);
+  assert.equal((await ada.model("incidents").decide({ a: 1 })).limit_exceeded, false);
+});
+
+test("Retry-After as a date, and a transport that answers no headers", async () => {
+  assert.equal(retryAfter("Wed, 21 Oct 2015 07:28:00 GMT"), 0);
+  assert.equal(retryAfter("1.5"), 1.5);
+  assert.equal(retryAfter("soon"), undefined);
+  const { ada } = fake([200, { models: [] }]);
+  assert.deepEqual(await ada.models(), []);
+  assert.equal(ada.clusterSeq, 0);
 });

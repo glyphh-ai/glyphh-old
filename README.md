@@ -7,7 +7,7 @@ Glyphh's developer surface: the Claude Code plugin, the SDKs and the contract th
 | [`plugins/glyphh`](plugins/glyphh) | `/plugin marketplace add glyphh-ai/glyphh`, then `/plugin install glyphh@glyphh` | The plugin: your Glyphh account in Claude Code, the Ada skill, the file ledger |
 | [`sdk/python`](sdk/python) | `pip install glyphh` | Ada for Python, `from glyphh import Ada` |
 | [`sdk/typescript`](sdk/typescript) | `npm i @glyphh-ai/glyphh` | Ada for TypeScript and JavaScript, `import { Ada } from "@glyphh-ai/glyphh"` |
-| [`contract`](contract) | | JSON Schema of a run's `Result`, an Ada query's `Answer` and an error, with the fixtures both SDKs are tested against |
+| [`contract`](contract) | | JSON Schema of a run's `Result`, an Ada query's `Answer`, a capped `record`'s data and an error, a cluster's headers and codes, with the fixtures both SDKs are tested against |
 
 An Ada model is a typed spec and a precedent store in your own Glyphh runtime, deployed by commit. A new case is
 answered from the closest precedents: deterministically, with the precedents it stands on, and saying when it does
