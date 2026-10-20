@@ -9,7 +9,7 @@
   prompt   UserPromptSubmit: the files this session touched in its last few turns and their last change, so a turn
            after a compaction still knows what it was doing
 
-Measured, not assumed: benchmarks/session in glyphh-ai/rrotor says what a turn needs from earlier turns is the
+Measured, not assumed: benchmarks/session in glyphh-ai/glyphh says what a turn needs from earlier turns is the
 last touch of each file it works on, and that recency and request-text search recover a third and a seventh of it.
 The ledger recovers it by construction. Whether it saves tokens is the measurement that follows (measure.py)."""
 
