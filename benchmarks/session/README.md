@@ -4,25 +4,23 @@
 > Code transcripts; `recall.py` also runs against the Ada kernel inside rrotor (Glyphh's runtime), which is not in
 > this repository. The numbers are one machine's and will differ on yours.
 
-The idea under test, Chris's: a Claude Code session carries its whole transcript into every call; a precedent store
-could carry only the turns a new turn needs, and the bill would fall by the difference. Two questions, both
-answered on real data: every Claude Code session on this machine, July to October 2026, 180 sessions, read from the
-transcripts the harness keeps (`~/.claude/projects`). No transcript text is in this folder; the scripts read the
-transcripts in place and print aggregates.
+The idea under test: a Claude Code session carries its whole transcript into every call; a precedent store could
+carry only the turns a new turn needs, and the bill would fall by the difference. Two questions, both answered on
+real data: 180 Claude Code sessions from one developer's machine, read from the transcripts the harness keeps
+(`~/.claude/projects`). No transcript text is in this folder; the scripts read the transcripts in place and print
+aggregates.
 
 ## The table
 
-**What the bill is**, by the API's own token counts, at Fable 5.1 list prices (input $10/M, cache write $12.50/M,
-cache read $1/M, output $50/M), over the 85 sessions with 20 or more calls, 135,142 calls:
+**Where the bill goes**, by the API's own token counts, at list prices, over the sessions with 20 or more calls:
 
 | | |
 |---|---|
-| The bill | $90,980 ($673 per 1,000 calls) |
-| of which re-reading the context on every call | $64,037 (70%) |
+| re-reading the context on every call | 70% of the bill |
 | context per call, average | 484,985 tokens |
 | of which the fixed preamble (system prompt, tools, memory, skills) | ~51,000 |
 | of which history carried from earlier in the session | ~430,000 (89%) |
-| the same bill with history replaced by five precedents of ~400 tokens | ~$27,400 (**70% less**) |
+| the same calls with history replaced by five precedents of ~400 tokens | **70% less** |
 
 **What a turn needs from history.** After the fact the label is known: for each file a turn edits or reads, the last
 earlier turn that touched it (1,928 turns in 44 sessions of 10+ turns; median 2 earlier turns needed, 3 files
