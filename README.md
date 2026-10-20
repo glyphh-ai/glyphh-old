@@ -16,7 +16,8 @@ not know. The runtime is reached directly: hosted by Glyphh at `https://<machine
 
 - Platform (sign in, machines, runtime keys): https://platform.glyphh.ai
 - Self-hosting (Docker Compose, Helm, Terraform): https://github.com/glyphh-ai/rrotor/tree/main/docs/self-hosting
-- Pricing: https://glyphh.ai/pricing. Ada is in every plan, Free included; self-hosting is free and unlimited.
+- Pricing: https://glyphh.ai/pricing. Ada is in every plan, Free included; self-hosting is free, at Community's limits without a licence key (one node,
+  5,000 precedents).
 
 ## The runtime's REST API
 
