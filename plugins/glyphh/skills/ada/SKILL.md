@@ -35,9 +35,11 @@ the runtime signs the user in through Glyphh, and no key is typed. Its tools are
 
 No runtime connector: send the user to the platform to start a hosted runtime, or to the self-hosting docs to run
 their own, and to add its address as a connector. Ada is in every Glyphh plan, Free included: there is nothing to
-buy to use it, and Glyphh never charges per seat, per model or per install. Local and self-hosted runtimes are
-unlimited; a hosted runtime holds the plan's managed precedents (all its models together), and a `record` past them
-is refused with `E_LIMIT_PRECEDENTS`. Never ask for a key or a token; the connector carries the sign-in.
+buy to use it, and Glyphh never charges per seat, per model or per install. A runtime holds, per node and across all
+its models, the precedents its licence key allows: with no key (Community, Free) 5,000; Pro 50,000; Team 500,000;
+Enterprise unlimited. A `record` past that cap is not an error: the run is `done` with `data.status`
+`"limit_exceeded"` (`indexed: false`, with `message`, `precedents` and `cap`). Tell the user nothing was recorded
+and that a plan with a higher cap lifts it. Never ask for a key or a token; the connector carries the sign-in.
 
 ## A model
 

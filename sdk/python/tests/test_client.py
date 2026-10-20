@@ -284,6 +284,16 @@ def test_a_record_past_the_cap_is_done_and_says_limit_exceeded():
     assert not client.model("incidents").decide({"a": 1}).limit_exceeded
 
 
+def test_the_docs_describe_the_cap_as_the_runtime_answers_it():
+    """rrotor answers a record past the cap `done` with `limit_exceeded` (E_LIMIT_PRECEDENTS is gone), and caps a
+    self-hosted runtime too: the SDKs' READMEs and the Ada skill Claude reads say so."""
+    root = Path(__file__).parents[3]
+    for doc in ("sdk/python/README.md", "sdk/typescript/README.md", "plugins/glyphh/skills/ada/SKILL.md"):
+        text = (root / doc).read_text()
+        assert "limit_exceeded" in text and "E_LIMIT_PRECEDENTS" not in text, doc
+        assert "self-hosted runtimes are" not in text and "5,000" in text, doc
+
+
 def test_retry_after_as_a_date_and_a_transport_that_answers_no_headers(clock):
     assert glyphh.client._retry_after("Wed, 21 Oct 2015 07:28:00 GMT") == 0.0
     assert glyphh.client._retry_after("1.5") == 1.5 and glyphh.client._retry_after("soon") is None

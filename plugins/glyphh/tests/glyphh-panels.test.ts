@@ -90,7 +90,7 @@ test('plan: managed precedents used of the bucket, hosting this month, the licen
   const w = await signedInHost()
   await A.openSection(w.gh, 'plan')
   const free = await w.gh.state.me.get()
-  expect(precedentsLine(free)).toBe('Managed precedents: none on this plan (local and self-hosted runtimes are unlimited)')
+  expect(precedentsLine(free)).toBe('Managed precedents: none on this plan (local and self-hosted runtimes: 5,000 a node)')
   expect(hostingLines(free)).toEqual(['Hosting this month (2026-10): $0, no hosted machines'])
 
   w.s.plan = 'Pro'
