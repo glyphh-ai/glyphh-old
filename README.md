@@ -7,6 +7,8 @@ Glyphh's developer surface: the Claude Code plugin, the SDKs and the contract th
 | [`plugins/glyphh`](plugins/glyphh) | `/plugin marketplace add glyphh-ai/glyphh`, then `/plugin install glyphh@glyphh` | The plugin: your Glyphh account in Claude Code, the Ada skill, the file ledger |
 | [`sdk/python`](sdk/python) | `pip install glyphh` | Ada for Python, `from glyphh import Ada` |
 | [`sdk/typescript`](sdk/typescript) | `npm i @glyphh-ai/glyphh` | Ada for TypeScript and JavaScript, `import { Ada } from "@glyphh-ai/glyphh"` |
+| [`deploy`](deploy) | `git clone --depth 1 https://github.com/glyphh-ai/glyphh.git` | Self-hosting rrotor, the runtime (image `ghcr.io/glyphh-ai/rrotor`): Docker Compose, a Helm chart, Terraform for AWS and GCP |
+| [`benchmarks`](benchmarks) | | Ada against Claude and classic models on public data (Banking77, German Credit), with the results, the judges' prompts and the scripts |
 | [`contract`](contract) | | JSON Schema of a run's `Result`, an Ada query's `Answer`, a capped `record`'s data and an error, a cluster's headers and codes, with the fixtures both SDKs are tested against |
 
 An Ada model is a typed spec and a precedent store in your own Glyphh runtime, deployed by commit. A new case is
@@ -15,7 +17,8 @@ not know. The runtime is reached directly: hosted by Glyphh at `https://<machine
 `https://<host>`. Claude connects to its `/mcp`; your software calls its REST API with a runtime key.
 
 - Platform (sign in, machines, runtime keys): https://platform.glyphh.ai
-- Self-hosting (Docker Compose, Helm, Terraform): https://github.com/glyphh-ai/rrotor/tree/main/docs/self-hosting
+- Self-hosting (Docker Compose, Helm, Terraform): https://docs.glyphh.ai/run-rrotor, with the files in [`deploy/`](deploy)
+- Benchmarks (Ada against Claude and classic models, on public data): [`benchmarks/`](benchmarks)
 - Pricing: https://glyphh.ai/pricing. Ada is in every plan, Free included; self-hosting is free, at Community's limits without a licence key (one node,
   5,000 precedents).
 
@@ -50,4 +53,5 @@ SDKs to PyPI and npm on a tag `sdk-v<version>`, the version both packages carry 
 
 ## License
 
-By folder (`LICENSE`): `plugins/` under Glyphh's terms; `sdk/` and `contract/` MIT.
+By folder (`LICENSE`): `plugins/` under Glyphh's terms; `sdk/`, `contract/`, `deploy/` and `benchmarks/` MIT. The
+rrotor image the deploy files run is not covered by them; the benchmarks' data sets keep their own licences (CC BY 4.0).

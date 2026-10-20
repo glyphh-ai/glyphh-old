@@ -74,7 +74,7 @@ anywhere. Three command hooks in `hooks/hooks.json`, beside the account's module
 | `PostToolUse` on Read (`ledger.py recall`) | Hands back the file's last three changes as context |
 | `UserPromptSubmit` (`ledger.py prompt`) | Lists the files this session changed in its last three turns |
 
-It needs `python3`. Why the last touch of each file: `benchmarks/session` in `glyphh-ai/rrotor` (180 real sessions)
+It needs `python3`. Why the last touch of each file: [`benchmarks/session`](../../benchmarks/session) (180 real sessions)
 found that is what a turn needs from earlier turns; recency recovers a third to a half of it, a search by the
 request a seventh.
 

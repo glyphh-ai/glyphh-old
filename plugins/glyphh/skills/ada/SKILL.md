@@ -17,7 +17,7 @@ The user's runtime is a connector in Claude, at one of two addresses:
 - **Hosted by Glyphh:** `https://<machine>.glyphh.app/mcp`, a machine made and started on the Glyphh platform
   (https://platform.glyphh.ai), whose Machines page shows the address to add.
 - **Self-hosted:** `https://<host>/mcp`, a rrotor the user runs on their own infrastructure (Docker Compose, Helm,
-  Terraform: https://github.com/glyphh-ai/rrotor/tree/main/docs/self-hosting), registered on the platform under its
+  Terraform: https://docs.glyphh.ai/run-rrotor), registered on the platform under its
   public address. TLS is the owner's; the address is theirs.
 
 Either way it is added once in Claude (Settings, Connectors, a custom connector with that URL) with one Allow click:
@@ -129,7 +129,7 @@ all). A learning lever moved relearns the store there and then. The levers, with
 | `word_evidence` | 2 | How much a case's words, by what each says of every outcome, weigh on the vote (0: not at all); the weight per word per outcome a classic text model has |
 
 How to tune honestly: hold some cases out, change one lever, `learn`, score the held-out cases, keep what helped.
-Never score on the cases the model learned from. The benchmarks in `glyphh-ai/rrotor` (`benchmarks/credit`,
+Never score on the cases the model learned from. The benchmarks in `glyphh-ai/glyphh` (`benchmarks/credit`,
 `benchmarks/banking77`) show the method and what each lever did on real data.
 
 ## Reading an answer
@@ -145,7 +145,7 @@ data below, asking at half a refused good loan sent nearly half the cases to a p
 quarter of the cost.
 
 What to expect: on a public credit data set with 800 cases learned and 200 held out (`benchmarks/credit` in
-`glyphh-ai/rrotor`), the learned, calibrated model matched Claude judging the same cases on accuracy and on the
+`glyphh-ai/glyphh`), the learned, calibrated model matched Claude judging the same cases on accuracy and on the
 bank's cost, deterministically, at a few millionths of a dollar a decision; a thresholded logistic regression was a
 level with it on cost. Ada's edge is the receipts, the clearances and learning one confirmed case at a time, not
 beating a classic model on numbers; say so when a user has purely numeric data and no need for those.
