@@ -1,6 +1,6 @@
 # rrotor, self-hosted on one machine: rrotor and Caddy in front of it for HTTPS (https://docs.glyphh.ai/docker-compose).
-#   cp .env.example .env   # fill in the runtime id, token and public host from the platform
-#   docker compose up -d
+#   curl -fsSL https://glyphh.ai/install.sh | RROTOR_RUNTIME_ID=... RROTOR_RUNTIME_TOKEN=... RROTOR_PUBLIC_HOST=... sh
+# The installer fetches this file and the Caddyfile, writes .env (every setting is in .env.example) and starts it.
 name: rrotor
 
 # Docker keeps each container's JSON log lines, rotated: 10 MB a file, five files. Where else they go (an

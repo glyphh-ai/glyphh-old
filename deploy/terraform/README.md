@@ -2,8 +2,10 @@
 
 One VM running the Docker Compose package (`deploy/compose`), its `/data` on a separate disk that outlives the
 instance: `aws/` (EC2, EBS, an Elastic IP, Session Manager instead of SSH) and `gcp/` (Compute Engine, a persistent
-disk, a static address, OS Login). Each has a usage example in `examples/basic/`. The full guide is
-https://docs.glyphh.ai/terraform.
+disk, a static address, OS Login). Each has a usage example in `examples/basic/`, to copy into an empty folder. The
+full guide is https://docs.glyphh.ai/terraform.
+
+Terraform fetches the module itself from its `git::` source; nothing needs cloning.
 
 ```hcl
 module "rrotor" {

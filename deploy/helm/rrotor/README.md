@@ -5,12 +5,17 @@ host; or, with `cluster.enabled=true` and a licence key with cluster sync, `repl
 runtime behind the same Service and Ingress. The full guide, with what the cluster must allow for the sandbox, is
 https://docs.glyphh.ai/helm.
 
+Install the packaged chart from its release; nothing needs cloning:
+
 ```sh
-git clone --depth 1 https://github.com/glyphh-ai/glyphh.git && cd glyphh
-helm install rrotor deploy/helm/rrotor -n rrotor --create-namespace \
+helm install rrotor https://github.com/glyphh-ai/glyphh/releases/download/rrotor-chart-0.2.0/rrotor-0.2.0.tgz \
+  -n rrotor --create-namespace \
   --set publicHost=rrotor.acme.com \
   --set runtime.id=<runtime id> --set runtime.token=<runtime token> \
   --set ingress.className=nginx --set ingress.certManagerClusterIssuer=letsencrypt
 ```
 
 The connector is then at `https://<publicHost>/mcp`.
+
+This folder is the chart's source: a push to `main` that raises `version` in `Chart.yaml` packages it as the release
+`rrotor-chart-<version>` (`.github/workflows/chart.yml`).

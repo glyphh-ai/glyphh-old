@@ -1,6 +1,7 @@
 # A three-node rrotor cluster on Google Cloud (a licence key with cluster sync): its own network, the nodes across
 # the region's zones, Google's external HTTPS load balancer with a managed certificate, and the DNS record in Cloud
 # DNS. The project needs the Compute Engine and Secret Manager APIs on.
+# Copy this file into an empty folder; Terraform fetches the module itself.
 #   terraform init && terraform apply -var runtime_id=... -var runtime_token=...
 
 terraform {
@@ -28,7 +29,7 @@ variable "runtime_token" {
 
 module "rrotor" {
   # From outside this repository: "git::https://github.com/glyphh-ai/glyphh.git//deploy/terraform/gcp?ref=main"
-  source = "../.."
+  source = "git::https://github.com/glyphh-ai/glyphh.git//deploy/terraform/gcp?ref=main"
 
   project          = "acme-rrotor"
   region           = "europe-west2"

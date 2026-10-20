@@ -1,0 +1,58 @@
+# The Helm chart's release: on a push to main touching deploy/helm, if Chart.yaml's version has no release
+# rrotor-chart-<version> yet, package deploy/helm/rrotor and release it, so `helm install` takes the .tgz by URL and
+# nobody clones this repository. Raise `version` in Chart.yaml to release a change; an existing release is left as is.
+name: chart
+
+on:
+  push:
+    branches: [main]
+    paths: ["deploy/helm/**", ".github/workflows/chart.yml"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - name: The chart's version
+        id: chart
+        run: |
+          version=$(awk '/^version:/ {print $2; exit}' deploy/helm/rrotor/Chart.yaml | tr -d '"')
+          [ -n "$version" ] || { echo "::error::no version in deploy/helm/rrotor/Chart.yaml"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if gh release view "rrotor-chart-$version" >/dev/null 2>&1; then
+            echo "rrotor-chart-$version is released already: raise version in Chart.yaml to release a change"
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Lint and package
+        if: steps.chart.outputs.exists == 'false'
+        run: |
+          helm lint deploy/helm/rrotor --set publicHost=rrotor.example.com --set runtime.id=x --set runtime.token=x
+          helm package deploy/helm/rrotor
+      - name: Release
+        if: steps.chart.outputs.exists == 'false'
+        env:
+          VERSION: ${{ steps.chart.outputs.version }}
+        run: |
+          url="https://github.com/${GITHUB_REPOSITORY}/releases/download/rrotor-chart-$VERSION/rrotor-$VERSION.tgz"
+          cat > "$RUNNER_TEMP/notes.md" <<EOF
+          The rrotor Helm chart $VERSION. Register the runtime on https://platform.glyphh.ai (Runtimes, Add a runtime), then:
+
+          \`\`\`sh
+          helm install rrotor $url \\
+            -n rrotor --create-namespace \\
+            --set publicHost=rrotor.acme.com \\
+            --set runtime.id=<runtime id> --set runtime.token=<runtime token>
+          \`\`\`
+
+          The full guide: https://docs.glyphh.ai/helm
+          EOF
+          gh release create "rrotor-chart-$VERSION" "rrotor-$VERSION.tgz" --latest=false \
+            --title "rrotor chart $VERSION" --notes-file "$RUNNER_TEMP/notes.md" --target "$GITHUB_SHA"
