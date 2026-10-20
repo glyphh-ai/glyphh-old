@@ -16,9 +16,8 @@ The user's runtime is a connector in Claude, at one of two addresses:
 
 - **Hosted by Glyphh:** `https://<machine>.glyphh.app/mcp`, a machine made and started on the Glyphh platform
   (https://platform.glyphh.ai), whose Machines page shows the address to add.
-- **Self-hosted:** `https://<host>/mcp`, a rrotor the user runs on their own infrastructure (Docker Compose, Helm,
-  Terraform: https://docs.glyphh.ai/run-rrotor), registered on the platform under its
-  public address. TLS is the owner's; the address is theirs.
+- **Self-hosted:** `https://<host>/mcp`, a rrotor the user runs on their own infrastructure, registered on the
+  platform under its public address. TLS is the owner's; the address is theirs.
 
 Either way it is added once in Claude (Settings, Connectors, a custom connector with that URL) with one Allow click:
 the runtime signs the user in through Glyphh, and no key is typed. Its tools are what you use:
@@ -33,8 +32,20 @@ the runtime signs the user in through Glyphh, and no key is typed. Its tools are
 | `run_status`, `run_log` `{run_id}` | A run's status and last Result; its log lines |
 | `approvals` | The runs waiting for the user |
 
-No runtime connector: send the user to the platform to start a hosted runtime, or to the self-hosting docs to run
-their own, and to add its address as a connector. Ada is in every Glyphh plan, Free included: there is nothing to
+No runtime connector: the user registers one on the platform (https://platform.glyphh.ai, Runtimes, Add a runtime),
+which gives its id and token, then runs it, with nothing to clone (https://docs.glyphh.ai/run-rrotor):
+
+- One machine with Docker, Caddy in front for HTTPS, the public host's DNS pointed at it first: `curl -fsSL
+  https://glyphh.ai/install.sh | RROTOR_RUNTIME_ID=<id> RROTOR_RUNTIME_TOKEN=<token> RROTOR_PUBLIC_HOST=<host> sh`
+  (`RROTOR_SIZE=small|medium|large` optional; it writes `./rrotor` and starts it).
+- HTTPS already in front: `docker run` of `ghcr.io/glyphh-ai/rrotor:latest` on port 7777, the line at
+  https://docs.glyphh.ai/docker-compose.
+- Kubernetes: `helm install` of the chart in `glyphh-ai/glyphh`'s release `rrotor-chart-<version>`
+  (https://docs.glyphh.ai/helm).
+- AWS or Google Cloud: the Terraform module, source
+  `git::https://github.com/glyphh-ai/glyphh.git//deploy/terraform/<aws|gcp>?ref=main` (https://docs.glyphh.ai/terraform).
+
+Then they add `https://<host>/mcp` as a connector. Ada is in every Glyphh plan, Free included: there is nothing to
 buy to use it, and Glyphh never charges per seat, per model or per install. A runtime holds, per node and across all
 its models, the precedents its licence key allows: with no key (Community, Free) 5,000; Pro 50,000; Team 500,000;
 Enterprise unlimited. A `record` past that cap is not an error: the run is `done` with `data.status`
@@ -46,7 +57,7 @@ and that a plan with a higher cap lifts it. Never ask for a key or a token; the 
 A repo with three files; a version is a commit.
 
 - `glyphh.json`: the manifest. `"needs": ["ada"]`, `"data": true`, and `functions`, each with a JSON Schema of its
-  inputs. The example's, to copy: `record {data, outcome?}`, `query {data}`, `facts {data, top?}`,
+  inputs. The usual set: `record {data, outcome?}`, `query {data}`, `facts {data, top?}`,
   `probabilities {data}`, `learn {sample?}`, `decide {data}`, `settings {changes?}` and `start`. Every function
   declares `"writes"` beside its `inputs` (`"query": {"description": ..., "inputs": {...}, "writes": false}`):
   `false` for `query`, `facts` and `probabilities`, which only read the store; `true` for `record`, `learn`,
@@ -76,15 +87,17 @@ A repo with three files; a version is a commit.
   the model learn its weights from its own store and recalibrate every hundred graded cases, so it follows its
   cases without a redeploy; the learned weights live with the store, over the spec file's.
 
-The worked example is `examples/ada_incidents` in `glyphh-ai/rrotor`: an app's incidents remembered, the fix for a
-new error with the nearest precedent's cause, owner and runbook for a cleared caller. Start from it.
+A worked example, an app's incidents: a case is `service` and `error_code` (exact), `message` (bag of words) and
+`hour` (numeric), with `cause`, `owner` and `runbook` in a layer with a `security_weight`; the outcome is the fix.
+Each incident is recorded with its fix; a new error is answered with the nearest precedents' fix, and their cause,
+owner and runbook only for a caller cleared for that layer.
 
 ## Building one with the user
 
 1. Agree the case: what comes in (the fields, which are exact, which are text, which are numbers on a scale, which
    are secret), what the outcome is (a short string: the decision), and who will call (people, a bot, software:
    their clearances).
-2. Write `spec.json`, `glyphh.json` and `model.py`; tests on `rrotor.testing.Harness` (the example's tests show how).
+2. Write `spec.json`, `glyphh.json` and `model.py`; tests on `rrotor.testing.Harness`.
 3. Set `output.costs` and `output.ask` with the user: what each wrong answer costs them, and what a person's
    answer costs. Open the model with `refresh_every` so it learns its weights from the cases it records (every
    role's weight becomes how much it tells about the outcome, every value's how far it moves it; roles that tell
@@ -135,7 +148,7 @@ Never score on the cases the model learned from. The benchmarks in `glyphh-ai/gl
 ## Reading an answer
 
 `query` answers `{sufficient, confidence, support, count, top, outcomes, receipts}`. Act on `top` only when
-`sufficient` is true and `confidence` clears the bar the user set (0.6 is the example's), and `count` is more than one
+`sufficient` is true and `confidence` clears the bar the user set (0.6 is a sound start), and `count` is more than one
 or two: a consensus of one is not consensus. `confidence` is a similarity-weighted vote, not a probability: for a
 probability use `probabilities` (calibrated once the model has been), and for a decision that weighs what each
 mistake costs use the kernel's `decide`. Where every answer is dearer than asking (`ask` true), the right move is
