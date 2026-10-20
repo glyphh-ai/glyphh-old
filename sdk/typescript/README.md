@@ -41,9 +41,8 @@ In a cluster (self-hosted rrotor, several nodes behind a load balancer) the clie
 - throws `NoHeadError`, `HeadLostError` (the head went with the write, which may have been applied: check before resending), `NotCommittedError` (the write is kept and commits later: do not resend it), `RunLostError`
   (the run's node left) and `ReadOnlyError` (a function marked `"writes": false` wrote), each an `AdaError`.
 
-A self-hosted `record` past the licence key's precedent cap is `done` with `r.limit_exceeded` true: nothing was
-indexed, and `r.data` says why. On a hosted runtime, a `record` past the plan's managed precedents is a `failed` run
-whose `data.code` is `E_LIMIT_PRECEDENTS`. The routes and the contract are in the
+A `record` past the licence key's precedent cap (5,000 per node with no key) is `done` with `r.limit_exceeded` true:
+nothing was indexed, and `r.data` says why. It is not thrown and not a `failed` run. The routes and the contract are in the
 [repository's README](https://github.com/glyphh-ai/glyphh#the-runtimes-rest-api).
 
 ## License
