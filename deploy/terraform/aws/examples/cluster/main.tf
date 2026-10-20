@@ -1,5 +1,6 @@
 # A three-node rrotor cluster on AWS (a licence key with cluster sync): its own VPC across three zones, a Network
 # Load Balancer with an ACM certificate validated in Route 53, and the DNS alias there.
+# Copy this file into an empty folder; Terraform fetches the module itself.
 #   terraform init && terraform apply -var runtime_id=... -var runtime_token=...
 
 terraform {
@@ -26,7 +27,7 @@ variable "runtime_token" {
 
 module "rrotor" {
   # From outside this repository: "git::https://github.com/glyphh-ai/glyphh.git//deploy/terraform/aws?ref=main"
-  source = "../.."
+  source = "git::https://github.com/glyphh-ai/glyphh.git//deploy/terraform/aws?ref=main"
 
   public_host     = "rrotor.acme.com"
   runtime_id      = var.runtime_id
