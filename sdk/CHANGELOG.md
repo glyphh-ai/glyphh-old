@@ -4,7 +4,7 @@ Both packages carry one version; a tag `sdk-v<version>` publishes both.
 
 ## 3.1.0
 
-For a clustered self-hosted runtime (rrotor's [cluster spec](https://github.com/glyphh-ai/rrotor/blob/main/docs/specs/cluster.md)):
+For a clustered self-hosted runtime ([running a cluster](https://docs.glyphh.ai/run-a-cluster)):
 
 - `E_NO_HEAD` (503, no head: writes wait, reads go on) is retried with backoff, `Retry-After` honoured; so is a read
   (a GET; `query`, `facts`, `probabilities`) the runtime could not answer (unreachable, or a proxy's 502, 503, 504).
