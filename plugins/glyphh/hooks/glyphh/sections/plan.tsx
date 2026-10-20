@@ -15,11 +15,11 @@ const FEATURES: [string, string][] = [
 ]
 
 /** What the plan's managed bucket holds: none on Free, where only local and
- *  self-hosted runtimes run (and are unlimited). */
+ *  self-hosted runtimes run (at Community's 5,000 precedents a node). */
 export function precedentsLine(me: Json | null): string {
   const p = precedentsOf(me)
   const limit = p.limit === undefined ? obj(planOf(me).limits).precedents : p.limit
-  if (limit === 0) return 'Managed precedents: none on this plan (local and self-hosted runtimes are unlimited)'
+  if (limit === 0) return 'Managed precedents: none on this plan (local and self-hosted runtimes: 5,000 a node)'
   return `Managed precedents: ${count(p.used ?? 0)} of ${limit === null || limit === undefined ? 'unlimited' : count(limit)}`
 }
 
