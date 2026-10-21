@@ -48,9 +48,8 @@ CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 claude plugin test plugins/glyphh
 (cd sdk/python && python -m pip install '.[dev]' && python -m pytest -q)
 ```
 
-CI (`.github/workflows`): `plugins.yml` and `sdks.yml` on every push and pull request; `publish.yml` publishes both
-SDKs to PyPI and npm on a tag `sdk-v<version>`, the version both packages carry ([`sdk/CHANGELOG.md`](sdk/CHANGELOG.md));
-`chart.yml` releases the Helm chart as `rrotor-chart-<version>` when `Chart.yaml`'s version is new.
+CI (`.github/workflows`): `plugins.yml` and `sdks.yml` check every pull request. Changes come in only by pull request,
+and only Glyphh maintainers release (the SDKs, the plugin and the Helm chart): see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
