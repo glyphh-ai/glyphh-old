@@ -1,6 +1,6 @@
 # @glyphh-ai/glyphh
 
-Ada for TypeScript and JavaScript: calls the Ada models in your Glyphh runtime, at its address, with a runtime key.
+Ada for TypeScript and JavaScript: your models in Ada Cloud, `https://ada.glyphh.ai`, called with an API key.
 Node 18 or later (or any runtime with `fetch`), no dependencies.
 
 ```bash
@@ -8,42 +8,57 @@ npm install @glyphh-ai/glyphh
 ```
 
 ```ts
-import { Ada, AdaError } from "@glyphh-ai/glyphh";
+import { Ada, LimitError } from "@glyphh-ai/glyphh";
 
-const incidents = new Ada().model("incidents");   // GLYPHH_RUNTIME_URL, GLYPHH_RUNTIME_KEY; or new Ada({ url, key })
+const ada = new Ada();          // GLYPHH_API_KEY from the environment; or new Ada({ key: "glyphh_ak_..." })
 
-await incidents.record({ error: {...}, resolution: {...} }, "raise circuit breaker");
+const d = await ada.decide("tickets", { ticket: { what: { plan: "pro", text: "charged twice" } } });
+if (d.ask) await sendToAPerson(d);   // a person should decide: d.outcome is the best guess, for them to see
+else act(d.outcome);                 // d.probabilities, d.expected_cost, d.receipts: the precedents it stands on
 
-let r = await incidents.decide<{ fix: string }>({ error: { what: { class: "TimeoutError", message: "payment gateway timed out" } } });
-if (r.status === "done") apply(r.data.fix);
-else if (r.status === "needs_input") r = await incidents.resume(r.run_id, await askSomeone(r.prompt));
-
-const bot = await incidents.query({...}, { clearance: 0.5 });   // a caller who may not see the secured layers
+const tickets = ada.model("tickets");
+await tickets.record({ ticket: {...} }, "refund");              // a confirmed outcome: the next case learns from it
 ```
 
-`GLYPHH_RUNTIME_URL` is the runtime's address: `https://<machine>.glyphh.app` (hosted) or `https://<host>`
-(self-hosted). The key is made on the platform's API Keys page (https://platform.glyphh.ai).
+The key is made on the platform's API Keys page (https://platform.glyphh.ai), or by Claude through the Glyphh
+connector; it acts in your org, with the clearance it was made with. `GLYPHH_ADA_URL` moves the address (a local
+server under test); 3.0's `GLYPHH_RUNTIME_URL` and `GLYPHH_RUNTIME_KEY` are still read.
+
+## From nothing to a decision
+
+```ts
+const tickets = await ada.createModel("tickets", spec);       // the spec as JSON: layers, segments, roles, output
+const job = await tickets.importFile("history.csv", {          // a path (Node), or the bytes with { format }
+  mapping: { Plan: "ticket.what.plan", Result: "outcome" },
+  onProgress: (j) => console.log(j.state, j.percent),
+});
+console.log(job.result.added, job.result.refused, job.result.refusals.slice(0, 3));
+
+const bt = await tickets.backtest([{ settings: { word_evidence: 0 }, name: "no word evidence" }], { holdout: { newest: 200 } });
+await tickets.settings({ word_evidence: 0 }, { note: "cost 8% less on the last 200", backtest: bt.id });   // a new version
+await tickets.activate(1);                                     // and back
+await tickets.export({ to: "tickets.zip" });                   // everything, as a zip: never locked in
+```
 
 | | |
 |---|---|
-| `Ada` | `models()`, `deploy(repo, commit, token?)`, `model(name)`, `run(runId)`, `log(runId)`, `resume(runId, answer)`, `cancel(runId)` |
-| `AdaModel` | `record(data, outcome?)`, `query`, `facts({ top })`, `probabilities`, `decide`, `learn({ sample })`, each with `{ clearance }`; `call(fn, inputs, { version, clearance })` for any function; `resume(runId, answer)` |
-| `Result` | `run_id`, `model`, `version`, `function`, `status`, `data`, `step`, `prompt`, `seconds`, `limit_exceeded` |
-| `AdaError` | `code`, `message`, `status`, `detail`, `retryAfter`: the runtime's code (`E_AUTH`, `E_LIMIT`, `E_MODEL_MISSING`, `E_RUN_MISSING`, `E_BAD_REQUEST`, ...), `E_UNREACHABLE` or `E_CONFIG` |
+| `Ada` | `decide(model, data, { output, outputs, include: ["facts"], clearance })` (`POST /v1/decide`); `models()`, `model(name)`, `createModel(name, spec)`, `deleteModel(name)`; `job(id)`, `wait(job, { timeout, onProgress })`, `download(job)`; `usage()` |
+| `AdaModel` | `info()`, `spec()`, `setSpec(spec, { note, backtest })`, `settings()` and `settings(changes, { note, backtest })`, `versions()`, `activate(version)`, `delete()`; `recordMany(cases)` (a thousand a request, in chunks), `grade(id, value, { output })`, `forget(id)`; `decide(data, ...)`; `learn()`, `learnJob()`, `calibrate()`, `backtest(candidates, { holdout, output })`; `importFile(path or bytes, { format, mapping, partial, learn })`, `export({ format, to })` |
+| `Decision` | `outcome`, `probabilities`, `expected_cost`, `ask`, `receipts`, `facts`, `outputs`, `model`, `version`; reads as 3.0's `Result` too (`status`, `data`) |
+| `Job` | `id`, `model`, `kind`, `state` (`awaiting`, `queued`, `running`, `done`, `failed`), `percent`, `result`, `error`, `download`, `upload` |
+| `Usage` | `plan`, `month` (YYYY-MM, UTC), `resets_at` (YYYY-MM-DD), `models`, `precedents` (`used`, `max`), `requests` (`used`, `max`, `over`, `overage`: past the month metered on Basic, Pro and Team, refused on Free), `requests_per_second`; `null` is by contract, no cap |
+| `AdaError` | `code`, `message`, `status`, `detail`, `retryAfter`, `traceId`; typed by code: `AuthError`, `LimitError` (`reason`, `used`, `max`, `plan`, `upgrade`, `resetsAt`), `RateError` (`retryAfter` from Retry-After, `max`; waited out while the retry deadline allows), `InvalidError`, `ModelMissingError`, `JobMissingError`, `SpecError`, `SpecLimitError`, `SpecReadingError`, `FewRolesError`, `MappingError`, `BusyError`, `NotReadyError`, `NoChangeError`, `IdempotencyError`, `VersionGoneError`, `AdaTimeoutError`, `UnavailableError`, `JobFailedError` (a job that ended `failed`) |
 
-In a cluster (self-hosted rrotor, several nodes behind a load balancer) the client:
+Every call that runs long is a job, waited for with its progress unless `{ wait: false }`. Every write carries an
+`Idempotency-Key`, so the client sends again what is safe to: a read, or a write, while Ada is unreachable for a
+moment (`E_UNAVAILABLE`, `E_TIMEOUT`, a 502 to 504), and anything refused with 429, with backoff and `Retry-After`,
+for up to `new Ada({ retryDeadline })` seconds (default 30; 0: never).
 
-- retries `E_NO_HEAD` (no head for a moment: writes wait, reads go on), and a read the runtime could not answer,
-  with backoff and `Retry-After`, for up to `new Ada({ retryDeadline })` seconds (default 30; 0: never). A write
-  that may have been applied is never sent again.
-- sends the highest `Rrotor-Cluster-Seq` it has seen as `Rrotor-Min-Seq`, so reads see its writes on any node
-  (`readYourWrites: false` to stop; `ada.clusterSeq` shows it).
-- throws `NoHeadError`, `HeadLostError` (the head went with the write, which may have been applied: check before resending), `NotCommittedError` (the write is kept and commits later: do not resend it), `RunLostError`
-  (the run's node left) and `ReadOnlyError` (a function marked `"writes": false` wrote), each an `AdaError`.
+SDK 3.0's calls still work: `record`, `query`, `facts`, `probabilities`, `learn` and `call(fn, inputs)` go through
+`POST /v1/runs` and answer a `Result` (`run_id`, `status`, `data`, ...). The cloud answers every run at once, so a
+decision never waits for input: it says `ask`.
 
-A `record` past the licence key's precedent cap (5,000 per node with no key) is `done` with `r.limit_exceeded` true:
-nothing was indexed, and `r.data` says why. It is not thrown and not a `failed` run. The routes and the contract are in the
-[repository's README](https://github.com/glyphh-ai/glyphh#the-runtimes-rest-api).
+The API and its answers' shapes are in [`contract/contract.json`](https://github.com/glyphh-ai/glyphh/tree/main/contract).
 
 ## License
 
