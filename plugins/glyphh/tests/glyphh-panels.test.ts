@@ -71,13 +71,14 @@ test('plan: /v1/me and the plans list load', async () => {
   const w = await signedInHost()
   await A.openSection(w.gh, 'plan')
   expect((await w.gh.state.me.get())?.plan).toMatchObject({ name: 'Free' })
-  expect((await w.gh.state.lists.get()).plans?.map(p => p.name)).toEqual(['Free', 'Pro', 'Team', 'Enterprise'])
+  expect((await w.gh.state.lists.get()).plans?.map(p => p.name)).toEqual(['Free', 'Basic', 'Pro', 'Team', 'Enterprise'])
   expect(w.s.calls.find(c => c.path === '/v1/plans')?.bearer).toBeUndefined()
 })
 
 test('plan: each plan by its price, managed precedents and hosted machines; Enterprise by contract, never a rate', () => {
   expect(PLANS.map(p => `${p.name} · ${priceText(p)} · ${planLimits(p)}`)).toEqual([
     'Free · $0 · no managed precedents · no hosted machines',
+    'Basic · $20/month · no managed precedents · no hosted machines',
     'Pro · $99/month · 100,000 managed precedents · 3 hosted machines',
     'Team · $299/month · 1,000,000 managed precedents · 10 hosted machines',
     'Enterprise · By contract · unlimited managed precedents · unlimited hosted machines',

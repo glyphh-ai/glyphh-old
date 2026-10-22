@@ -1062,13 +1062,13 @@
         "body": {
           "error": {
             "code": "E_LIMIT",
-            "message": "Your Free plan's 10,000 Ada reads this month are used: they start again on 2026-11-01. Upgrade to Pro (the connector's upgrade tool, or Billing on the platform) to read on now.",
+            "message": "Your Free plan's 10,000 Ada reads this month are used: they start again on 2026-11-01. Upgrade to Basic (the connector's upgrade tool, or Billing on the platform) to read on now.",
             "trace_id": "c67f348ec81043bbabb69e8fc1bf7b95",
             "reason": "requests",
             "used": 10000,
             "max": 10000,
             "plan": "Free",
-            "upgrade": "Pro",
+            "upgrade": "Basic",
             "resets_at": "2026-11-01"
           }
         }

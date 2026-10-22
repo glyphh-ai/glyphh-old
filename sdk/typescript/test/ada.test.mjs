@@ -280,7 +280,7 @@ for (const [name, error] of [
         assert.deepEqual([e.reason, e.used, e.max, e.upgrade, e.resetsAt], ["precedents", 4995, 5000, undefined, undefined]);
       }
       if (name === "past the plan's month of requests") {
-        assert.deepEqual([e.reason, e.plan, e.upgrade, e.max], ["requests", "Free", "Pro", 10000]);
+        assert.deepEqual([e.reason, e.plan, e.upgrade, e.max], ["requests", "Free", "Basic", 10000]);
         assert.deepEqual([e.used, e.resetsAt], [sent.used, sent.resets_at]);
       }
       if (error === RateError) {

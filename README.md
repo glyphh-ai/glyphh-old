@@ -37,7 +37,7 @@ Claude through the connector). A refusal is `{"error": {code, message, trace_id,
 | `POST …/imports` `{format, mapping?, partial?, learn?}`; `PUT /v1/uploads/{link}` | An import (JSON Lines, CSV, a kernel SQLite store, a model's own export): the job and a one-hour upload link |
 | `POST …/export` `{format}`; `GET /v1/downloads/{link}` | Everything of a model, as a job whose done state carries a one-hour download link |
 | `GET /v1/jobs/{id}` | A job's state, percent, result or error |
-| `GET /v1/usage` | The plan, the month (UTC) and when it starts again, the models, the precedents held and the month's requests against the plan's (`over` past it on Pro and Team, metered), and the calls a second |
+| `GET /v1/usage` | The plan, the month (UTC) and when it starts again, the models, the precedents held and the month's requests against the plan's (`over` past it on Basic, Pro and Team, metered), and the calls a second |
 | `POST /v1/runs` `{model, function, inputs, clearance?}` | SDK 3.0's call shape, answered at once as a `done` Result |
 
 The shapes are in [`contract/contract.json`](contract/contract.json) (version 4), with
