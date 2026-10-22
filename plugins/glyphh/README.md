@@ -11,7 +11,7 @@ The Glyphh plugin for Claude Code, 1.0.0.
 |---|---|
 | The account (a hooks module, `hooks/register.tsx`) | `/glyphh`: sign in, the account, org, plan and billing panel. Needs `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` (function hooks are early access in Claude Code 2.1) |
 | The sign-in card (MCP server, `.mcp.json`) | Ask Claude *"sign in to Glyphh"* |
-| Ada (a skill, [`skills/ada/SKILL.md`](skills/ada/SKILL.md)) | Claude builds, deploys and calls Ada models through your runtime's connector, `https://<machine>.glyphh.app/mcp` or `https://<host>/mcp`, added once in Claude's Connectors |
+| Ada (a skill, [`skills/ada/SKILL.md`](skills/ada/SKILL.md), with `references/`) | Claude agrees a case with you, writes its spec, loads your history, backtests, tunes and asks Ada models in Ada Cloud, and makes an API key for your code, through the Glyphh connector's `ada_*` tools (`https://api.glyphh.ai/mcp`, added once in Claude's Connectors) |
 | The file ledger (command hooks, `hooks/ledger.py`) | What Claude last changed in each file and why, handed back when it reads the file again |
 
 The skill, the card and the ledger work without the variable.
@@ -137,7 +137,7 @@ through the engine on both surfaces. `mcp/test` checks install.json's mode and a
 | `hooks/glyphh/command.ts`, `open.ts`, `openreq.ts`, `state.ts` | `/glyphh`; opening pages in the browser pane; the card's open requests; the panel's note |
 | `mcp/src/` | The MCP server: `server.ts` (the tools and the card), `flow.ts` (the device flow), `install.ts` (install.json, the machine probe) |
 | `mcp/card/` | `sign-in.html`, and `mcp-app.js`: `@modelcontextprotocol/ext-apps` 2.0.3's bridge, vendored |
-| `skills/` | `ada/SKILL.md`, `glyphh-sign-in/SKILL.md` |
+| `skills/` | `ada/SKILL.md` (with `references/spec.md` and `references/tuning.md`), `glyphh-sign-in/SKILL.md` |
 | `types/index.d.ts` | The account's types and the `$.state` contract |
 
 **`$` stays in its file.** The engine reads a module's source before running it and follows `$` only into functions
