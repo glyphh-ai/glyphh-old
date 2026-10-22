@@ -24045,7 +24045,7 @@ var failure = (err) => ({
   content: [{ type: "text", text: err instanceof Error ? err.message : String(err) }]
 });
 function signInTool(server, flow) {
-  const description = "Sign this machine in to Glyphh: shows a sign-in card with a code and a Sign in button, or says who is signed in already.";
+  const description = "Sign this device in to Glyphh: shows a sign-in card with a code and a Sign in button, or says who is signed in already.";
   const config2 = { title: "Sign in to Glyphh", description, inputSchema: {}, _meta: { ui: { resourceUri: CARD_URI } } };
   server.registerTool("glyphh_sign_in", config2, async () => {
     try {
@@ -24069,7 +24069,7 @@ function openTool(server) {
   const base = (process.env.GLYPHH_SERVER_URL || "https://api.glyphh.ai").replace(/\/$/, "");
   const _meta = { ui: { resourceUri: CARD_URI, visibility: ["app"] } };
   const inputSchema = { url: external_exports.string() };
-  server.registerTool("glyphh_sign_in_open", { title: "Open the Glyphh sign-in page", description: "Opens the sign-in page in this machine's browser. Called by the card.", inputSchema, _meta }, async ({ url }) => {
+  server.registerTool("glyphh_sign_in_open", { title: "Open the Glyphh sign-in page", description: "Opens the sign-in page in this device's browser. Called by the card.", inputSchema, _meta }, async ({ url }) => {
     const ok2 = url.startsWith(`${base}/v1/device?code=`);
     if (ok2) await openInClaude(url);
     return { content: [{ type: "text", text: ok2 ? "opened" : "refused" }], structuredContent: { opened: ok2 } };

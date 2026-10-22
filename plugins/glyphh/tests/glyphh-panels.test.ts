@@ -2,8 +2,8 @@ import { expect, test } from 'claude-code/testing'
 
 import { signedIn } from '../hooks/glyphh/account'
 import * as A from '../hooks/glyphh/actions'
-import { hostingLines, licenseLine, precedentsLine } from '../hooks/glyphh/sections/plan'
-import { count, money, planLimits, priceText } from '../hooks/glyphh/shape'
+import { usageLines } from '../hooks/glyphh/sections/plan'
+import { cloudLimits, count, money, priceText } from '../hooks/glyphh/shape'
 import { isLinkable } from '../hooks/glyphh/ui'
 import { HOME, fakeHost } from './fake-host'
 import { PLANS } from './fake-server'
@@ -35,7 +35,7 @@ test('account: rename, list installs, revoke another, revoke this one signs out'
   expect(w.files.has(`${HOME}/.glyphh/install.json`)).toBe(false)
 })
 
-test('a revoked token anywhere signs this machine out', async () => {
+test('a revoked token anywhere signs this device out', async () => {
   const w = await signedInHost()
   w.files.set(`${HOME}/.glyphh/install.json`, JSON.stringify({ install_id: 'i1', token: 'stale' }))
   await A.openSection(w.gh, 'plan')
@@ -75,38 +75,41 @@ test('plan: /v1/me and the plans list load', async () => {
   expect(w.s.calls.find(c => c.path === '/v1/plans')?.bearer).toBeUndefined()
 })
 
-test('plan: each plan by its price, managed precedents and hosted machines; Enterprise by contract, never a rate', () => {
-  expect(PLANS.map(p => `${p.name} · ${priceText(p)} · ${planLimits(p)}`)).toEqual([
-    'Free · $0 · no managed precedents · no hosted machines',
-    'Basic · $20/month · no managed precedents · no hosted machines',
-    'Pro · $99/month · 100,000 managed precedents · 3 hosted machines',
-    'Team · $299/month · 1,000,000 managed precedents · 10 hosted machines',
-    'Enterprise · By contract · unlimited managed precedents · unlimited hosted machines',
+test('plan: each plan by its price and Ada Cloud caps; Enterprise by contract, never a rate', () => {
+  expect(PLANS.map(p => `${p.name} · ${priceText(p)} · ${cloudLimits(p)}`)).toEqual([
+    'Free · $0 · 5,000 precedents · 10,000 reads a month · none past the month',
+    'Basic · $20/month · 10,000 precedents · 50,000 reads a month · then $1 per 10,000',
+    'Pro · $99/month · 100,000 precedents · 1,000,000 reads a month · then $1 per 10,000',
+    'Team · $299/month · 1,000,000 precedents · 5,000,000 reads a month · then $1 per 10,000',
+    'Enterprise · By contract · by contract',
   ])
+  expect(cloudLimits({ name: 'Old', price_cents: 0 })).toBe('by contract')
   expect(money(1234)).toBe('$12.34')
   expect(count(1000000)).toBe('1,000,000')
 })
 
-test('plan: managed precedents used of the bucket, hosting this month, the license', async () => {
+test("plan: the org's Ada Cloud use: precedents and reads of the plan's, the reset, reads past the month", async () => {
   const w = await signedInHost()
   await A.openSection(w.gh, 'plan')
-  const free = await w.gh.state.me.get()
-  expect(precedentsLine(free)).toBe('Managed precedents: none on this plan (local and self-hosted runtimes: 5,000 a node)')
-  expect(hostingLines(free)).toEqual(['Hosting this month (2026-10): $0, no hosted machines'])
+  const at = (name: string) => PLANS.find(p => p.name === name)
+  expect(usageLines(await w.gh.state.me.get(), at('Free'))).toEqual([
+    'Precedents: 4,321 of 5,000, in 2 models',
+    'Reads 2026-10: 1,234 of 10,000',
+    "The month's reads start again 2026-11-01.",
+  ])
 
-  w.s.plan = 'Pro'
+  w.s.plan = 'Basic'
+  w.s.reads = 62000
   await A.openSection(w.gh, 'plan')
-  const pro = await w.gh.state.me.get()
-  expect(precedentsLine(pro)).toBe('Managed precedents: 12,345 of 100,000')
-  expect(hostingLines(pro)).toEqual(['Hosting this month (2026-10): $12.34', '  ada-prod · small · $12.34'])
+  expect(usageLines(await w.gh.state.me.get(), at('Basic'))[1]).toBe('Reads 2026-10: 62,000 of 50,000; 12,000 past it, metered at $1 per 10,000')
+
   w.s.plan = 'Enterprise'
   await A.openSection(w.gh, 'plan')
-  expect(precedentsLine(await w.gh.state.me.get())).toBe('Managed precedents: 12,345 of unlimited')
-
-  expect(licenseLine(await w.gh.state.license.get())).toBe('License: valid, until 2999-01-01T00:00:00Z · Pro · hosted machines 3 · sync')
-  expect(licenseLine(null)).toBe('License: none yet.')
-  expect(licenseLine({ ok: false, error: 'expired', plan: 'Enterprise', limits: { machines: null }, features: { sync: true, ha: true, offline: true, sso: true } }))
-    .toBe('License: not valid (expired) · Enterprise · hosted machines unlimited · sync, HA, offline licences, SSO')
+  expect(usageLines(await w.gh.state.me.get(), at('Enterprise')).slice(0, 2)).toEqual([
+    'Precedents: 4,321 (by contract), in 2 models',
+    'Reads 2026-10: 62,000 (by contract)',
+  ])
+  expect(usageLines({ plan: { name: 'Free' } })).toEqual(['Ada Cloud usage: not available yet.'])
 })
 
 test('billing: Stripe pages open in the browser pane on the desktop, as links in a terminal', async () => {

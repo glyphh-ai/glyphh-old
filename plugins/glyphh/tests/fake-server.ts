@@ -2,14 +2,10 @@
 // no network. Each call is recorded with its bearer.
 import type { HttpInit, HttpResponse } from 'claude-code'
 
-import { keyPair } from '../hooks/glyphh/ed25519'
-
 type Json = Record<string, unknown>
 export type Call = { method: string; path: string; body: Json; bearer?: string }
 
 const TOKEN = 'tok-secret-1'
-const SEED = new Uint8Array(32).fill(7)
-const b64 = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes))
 
 function newState() {
   return {
@@ -27,37 +23,39 @@ function newState() {
     orgName: 'Glyphh',
     plan: 'Free',
     billingStatus: 'none',
-    licenseTamper: false,
-    licenseExpires: '2999-01-01T00:00:00Z',
+    /** Reads made this month, the org's. */
+    reads: 1234,
   }
 }
 
 type State = ReturnType<typeof newState>
 
-// GET /v1/plans as the server lists them: Enterprise's price is each
+// GET /v1/plans as the server lists them, each with its Ada Cloud caps
+// (glyphh_server.ops.plans.CloudLimits): Enterprise's price and caps are each
 // contract's own, so null; it is never checked out.
-const plan = (name: string, price_cents: number | null, interval: string | null, machines: number | null, precedents: number | null) => ({
-  name,
-  version: 1,
-  price_cents,
-  interval,
-  self_serve: price_cents !== null,
-  limits: { machines, precedents },
-  features: { sync: name !== 'Free' && name !== 'Basic', ha: name === 'Enterprise', offline: name === 'Enterprise', sso: name === 'Enterprise' },
-  markup_hidden: true,
-})
+const plan = (name: string, price_cents: number | null, interval: string | null, precedents: number | null, reads: number | null, rps: number | null) => {
+  const overage = price_cents !== null && price_cents > 0
+  return {
+    name,
+    version: 1,
+    price_cents,
+    interval,
+    self_serve: price_cents !== null,
+    cloud: { precedents, requests_per_month: reads, requests_per_second: rps, overage, overage_cents_per_10k: overage ? 100 : null },
+  }
+}
 
 export const PLANS = [
-  plan('Free', 0, null, 0, 0),
-  plan('Basic', 2000, 'month', 0, 0), // Ada Cloud's $20 plan: no hosted machines
-  plan('Pro', 9900, 'month', 3, 100000),
-  plan('Team', 29900, 'month', 10, 1000000),
-  plan('Enterprise', null, 'year', null, null),
+  plan('Free', 0, null, 5000, 10000, 5),
+  plan('Basic', 2000, 'month', 10000, 50000, 10),
+  plan('Pro', 9900, 'month', 100000, 1000000, 50),
+  plan('Team', 29900, 'month', 1000000, 5000000, 200),
+  plan('Enterprise', null, 'year', null, null, null),
 ]
 
 const meOf = (s: State) => {
   const p = PLANS.find(x => x.name === s.plan) ?? PLANS[0]!
-  const hosted = p.limits.machines !== 0
+  const max = p.cloud.requests_per_month
   return {
     id: 'u1',
     email: 'chris@example.com',
@@ -66,11 +64,15 @@ const meOf = (s: State) => {
     providers: [...s.providers],
     org: { id: 'o1', name: s.orgName, billing_status: s.billingStatus, renews_at: null, plan_until: s.plan === 'Enterprise' ? '2027-10-18T23:59:59Z' : null },
     plan: p,
-    precedents: { used: hosted ? 12345 : 0, limit: p.limits.precedents },
-    hosting: {
+    // glyphh_ada.usage.CloudUsage
+    cloud: {
+      plan: p.name,
       month: '2026-10',
-      month_to_date_cents: hosted ? 1234 : 0,
-      machines: hosted ? [{ id: 'm1', name: 'ada-prod', size: 'small', cents: 1234 }] : [],
+      resets_at: '2026-11-01',
+      models: 2,
+      precedents: { used: 4321, max: p.cloud.precedents },
+      requests: { used: s.reads, max, over: max !== null && p.cloud.overage ? Math.max(0, s.reads - max) : 0, overage: p.cloud.overage },
+      requests_per_second: p.cloud.requests_per_second,
     },
   }
 }
@@ -79,20 +81,6 @@ const refuse = (status: number, code: string, message: string, detail: Json = {}
   status,
   body: { error: { code, message, trace_id: 'tr-1', ...detail } },
 })
-
-async function license(s: State) {
-  const claims = {
-    plan: 'Pro',
-    limits: { machines: 3 },
-    features: { sync: true, ha: false, offline: false, sso: false },
-    mods: { ada: { limits: { precedents: null } } },
-    expires_at: s.licenseExpires,
-  }
-  const payload = JSON.stringify(claims)
-  const { sign } = await keyPair(SEED)
-  const sig = await sign(new TextEncoder().encode(payload))
-  return { payload: s.licenseTamper ? payload.replace('Pro', 'Team') : payload, signature: b64(sig) }
-}
 
 
 async function route(s: State, c: Call): Promise<{ status: number; body: unknown }> {
@@ -121,8 +109,6 @@ async function route(s: State, c: Call): Promise<{ status: number; body: unknown
     case 'GET /v1/installs': return ok({ installs: s.installs })
     case 'DELETE /v1/installs/:id': s.installs = s.installs.filter(i => i.id !== id); return ok()
     case 'POST /v1/sign-out': return ok()
-    case 'GET /v1/license': return ok(await license(s))
-    case 'GET /v1/license/key': return ok({ key: b64((await keyPair(SEED)).publicKey) })
     default: return adminRoute(s, c, key, id, ok)
   }
 }

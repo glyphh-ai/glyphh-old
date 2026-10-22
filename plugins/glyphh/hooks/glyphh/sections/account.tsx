@@ -27,7 +27,7 @@ export function Account(ctx: Ctx, a: AuthState) {
               <Text>
                 {str(i.name, 'install')} · {str(i.surface, '?')}
                 {i.last_seen_at ? ` · seen ${str(i.last_seen_at)}` : ''}
-                {id === mine ? ' · this machine' : ''}
+                {id === mine ? ' · this device' : ''}
               </Text>
               <Button key={`inst-revoke-${id}`} plain label="revoke" onPress={() => revokeInstall(gh, id)} />
             </Box>
