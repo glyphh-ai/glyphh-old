@@ -20,5 +20,4 @@ export async function clearAccount(gh: Host, error?: string) {
   await gh.state.me.set(() => null)
   await gh.state.lists.set(() => ({}))
   await gh.state.inviteLink.set(() => null)
-  await gh.state.license.set(() => null)
 }

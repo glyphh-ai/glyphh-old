@@ -88,16 +88,15 @@ async function stripePage(gh: Host, path: string, body: unknown, what: string, s
   })
 }
 
-/** Stripe Checkout for a self-serve plan (Pro or Team): its flat price and
- *  the metered hosting, on one subscription. */
+/** Stripe Checkout for a self-serve plan (Basic, Pro or Team): its monthly
+ *  price and the reads past the month, metered, on one subscription. */
 export const checkout = (gh: Host, plan: string, surface?: RenderSurface) =>
   stripePage(gh, '/v1/billing/checkout', { plan }, 'Checkout', surface)
 
 export const portal = (gh: Host, surface?: RenderSurface) =>
   stripePage(gh, '/v1/billing/portal', undefined, "Stripe's billing portal", surface)
 
-/** Another self-serve plan, prorated by Stripe; Free cancels the subscription
- *  (refused while the org has hosted machines). */
+/** Another self-serve plan, prorated by Stripe; Free cancels the subscription. */
 export const changePlan = (gh: Host, plan: string, surface?: RenderSurface) =>
   stripePage(gh, '/v1/billing/plan', { plan }, `Plan changed to ${plan}`, surface).then(() => loadMe(gh).catch(() => undefined))
 

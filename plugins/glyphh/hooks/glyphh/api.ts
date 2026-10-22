@@ -4,6 +4,7 @@
 import type { Json } from '../../types'
 import { glyphhPath, readJson } from './home'
 import type { Host } from './host'
+import { count } from './shape'
 
 export const DEFAULT_SERVER = 'https://api.glyphh.ai'
 
@@ -88,7 +89,9 @@ export function describe(err: unknown): string {
   const d = err.detail
   const used = num(d.used)
   const max = num(d.max)
-  const usage = used !== undefined && max !== undefined ? ` (${used} of ${max} ${num(d.limit) ?? ''} used)` : ''
+  const what = num(d.limit ?? d.reason)
+  const label = what === 'requests' ? 'reads' : what
+  const usage = used !== undefined && max !== undefined ? ` (${count(d.used)} of ${count(d.max)}${label ? ` ${label}` : ''} used)` : ''
   return `${err.message || 'Limit reached.'}${usage}${trace}`
 }
 

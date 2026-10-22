@@ -1,6 +1,7 @@
 # glyphh
 
-The Glyphh plugin for Claude Code, 1.0.0.
+The Glyphh plugin for Claude Code, 1.1.5: your Ada Cloud account, the Ada skill and the file ledger. Ada Cloud is
+Ada as an API that Glyphh runs: nothing to install or host.
 
 ```
 /plugin marketplace add glyphh-ai/glyphh
@@ -21,7 +22,7 @@ The skill, the card and the ledger work without the variable.
 | Command | Does |
 |---|---|
 | `/glyphh [section]` | The panel: Sign in, Account, Org, Plan, Billing. Where another command or skill has the name, it is `/glyphh-account` |
-| `/glyphh signin`, `/glyphh signout` | Sign in by device flow (the code and link are also printed); sign this machine out |
+| `/glyphh signin`, `/glyphh signout` | Sign in by device flow (the code and link are also printed); sign this device out |
 | *"sign in to Glyphh"* | The sign-in card in the chat (the `glyphh-sign-in` skill) |
 
 After the plugin adds a command, the desktop app may need **View › Reload** before it recognises it.
@@ -37,14 +38,25 @@ token>`.
 | Sign in | `POST /v1/device/code {name, surface, mod_version, machine_id}`; shows the code and link (opened in the browser pane on the desktop, printed in a terminal); polls `POST /v1/device/token` at `interval`, 5 s slower on `slow_down`, until the token, `expired_token` or `access_denied`. Copy link, Cancel |
 | Account | Name (Enter renames), email, sign-in providers (link, unlink), installs (revoke one; revoking this one signs out), Sign out |
 | Org | Name (an admin renames), members and roles (an admin removes, never the admin), invites: send (the link to copy), revoke |
-| Plan | The plan; managed precedents used of the plan's bucket and hosting this month, in total and by machine (`/v1/me`); this machine's licence (`/v1/license`); every plan by price, managed precedents and hosted machines (`/v1/plans`) |
-| Billing (admin) | Stripe Checkout for Pro or Team without a subscription (`POST /v1/billing/checkout`), else a change of plan (`POST /v1/billing/plan`; Free refused while hosted machines remain); **Talk to us** for Enterprise (`sales@glyphh.ai`, copied); card and invoices (`POST /v1/billing/portal`). Stripe opens in the browser pane, or as a link in a terminal |
+| Plan | The plan and the org's Ada Cloud use this month (`/v1/me`'s `cloud`): precedents held of the plan's, reads of the plan's, the reads past it (metered), and the day the count starts again; every plan by price with its precedents, reads a month and what reads past the month cost (`/v1/plans`'s `cloud`) |
+| Billing (admin) | Stripe Checkout for Basic, Pro or Team without a subscription (`POST /v1/billing/checkout`), else a change of plan (`POST /v1/billing/plan`); **Talk to us** for Enterprise (`sales@glyphh.ai`, copied); card and invoices (`POST /v1/billing/portal`). Stripe opens in the browser pane, or as a link in a terminal |
+
+The plans (members, installs and models unlimited on each; reads are decide, query, probabilities and facts calls,
+counted by calendar month, UTC):
+
+| Plan | Price | Precedents | Reads a month | Calls a second | Reads past the month |
+|---|---|---|---|---|---|
+| Free | $0 | 5,000 | 10,000 | 5 | Refused until the month turns |
+| Basic | $20/month | 10,000 | 50,000 | 10 | $1 per 10,000 |
+| Pro | $99/month | 100,000 | 1,000,000 | 50 | $1 per 10,000 |
+| Team | $299/month | 1,000,000 | 5,000,000 | 200 | $1 per 10,000 |
+| Enterprise | By contract | By contract | By contract | By contract | By contract |
 
 Every action ends in one line under the tabs: what it did, or why not. A refusal is `{"error": {code, message,
 trace_id}}`; `E_LIMIT` names the limit, the use and the plan that lifts it. A 401 means this install was revoked:
-the machine signs out.
+the device signs out.
 
-**Machine id.** Each device-code request carries `machine_id`, so a machine signing in again reuses its install:
+**Device id.** Each device-code request carries `machine_id`, so a device signing in again reuses its install:
 sha256(`"glyphh:" + value`) in hex, the value never sent. The value (`hooks/glyphh/machine.ts`, shared with the MCP
 server): macOS's IOPlatformUUID, Linux's `/etc/machine-id`, Windows' MachineGuid (or `wmic csproduct get uuid`);
 else the default route's MAC; else a random id kept in `~/.glyphh/machine.json`.
@@ -83,15 +95,10 @@ request a seventh.
 | File | What |
 |---|---|
 | `install.json` | `{install_id, token}`, mode 0600, written to a temporary file under `umask 077` and moved into place; the token never on a command line or in a log |
-| `license.json` | The server's signed licence and the key it was checked with. Fetched from `GET /v1/license` at session start and sign-in, its Ed25519 signature checked against `GET /v1/license/key` before it is kept, and again at each start. An expired licence is not valid |
-| `machine.json` | `{id}`, only where no hardware id or MAC can be read |
+| `machine.json` | `{id}`, the device id, only where no hardware id or MAC can be read |
 | `ledger/ledger.sqlite` | The file ledger |
 
-The licence comes as a compact JWS (`{token}`, EdDSA), `{payload, signature}` (over the payload's bytes) or
-`{license, signature}` (over the canonical JSON, as Python's `json.dumps(..., sort_keys=True, separators=(",",
-":"))`). The key: `{key}` or `{public_key}`, raw 32 bytes in base64 or base64url, PEM (SPKI) or a JWK (`kty: OKP`,
-`crv: Ed25519`). The hooks environment's `crypto.subtle` has only `digest`, so `hooks/glyphh/ed25519.ts` checks
-Ed25519 on BigInt and SHA-512.
+Signing out removes `install.json` (and a `license.json` an older plugin left).
 
 ## Run it locally
 
@@ -119,9 +126,9 @@ CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 claude plugin test plugins/glyphh
 (cd plugins/glyphh && node --test mcp/test/*.test.*)
 ```
 
-`tests/` runs on a fake server (`fake-server.ts`) and a fake host (`fake-host.ts`), no network: the client, the
-licence, device-flow polling, limit errors, each section's actions, the machine id, the card's flow and the panel
-through the engine on both surfaces. `mcp/test` checks install.json's mode and atomic write and the machine probe.
+`tests/` runs on a fake server (`fake-server.ts`) and a fake host (`fake-host.ts`), no network: the client,
+device-flow polling, limit errors, each section's actions, the plan's cloud caps and use, the device id, the card's flow and the panel
+through the engine on both surfaces. `mcp/test` checks install.json's mode and atomic write and the device id's probe.
 
 ## Files
 
@@ -131,11 +138,10 @@ through the engine on both surfaces. `mcp/test` checks install.json's mode and a
 | `hooks/glyphh/index.tsx` | `/glyphh`, its panel, the session start. The one file holding `$` and the account's atoms; hands the rest a `Host` (`host.ts`) |
 | `hooks/glyphh/api.ts` | The API client: base URL, bearer, refusals, `E_LIMIT` |
 | `hooks/glyphh/device.ts`, `account.ts`, `identities.ts` | Device-flow sign-in; install.json, `/v1/me`, sign-out, revoked installs; linked providers |
-| `hooks/glyphh/license.ts`, `ed25519.ts` | The licence: fetch, check, keep; Ed25519 on BigInt |
-| `hooks/glyphh/home.ts`, `machine.ts` | `~/.glyphh` and the 0600 writer; the machine id |
+| `hooks/glyphh/home.ts`, `machine.ts` | `~/.glyphh` and the 0600 writer; the device id |
 | `hooks/glyphh/actions.ts`, `panel.tsx`, `sections/`, `ui.tsx`, `shape.ts`, `inline.tsx` | What each section does; the panel and its sections; reading the server's answers; the inline sign-in |
 | `hooks/glyphh/command.ts`, `open.ts`, `openreq.ts`, `state.ts` | `/glyphh`; opening pages in the browser pane; the card's open requests; the panel's note |
-| `mcp/src/` | The MCP server: `server.ts` (the tools and the card), `flow.ts` (the device flow), `install.ts` (install.json, the machine probe) |
+| `mcp/src/` | The MCP server: `server.ts` (the tools and the card), `flow.ts` (the device flow), `install.ts` (install.json, the device id's probe) |
 | `mcp/card/` | `sign-in.html`, and `mcp-app.js`: `@modelcontextprotocol/ext-apps` 2.0.3's bridge, vendored |
 | `skills/` | `ada/SKILL.md` (with `references/spec.md` and `references/tuning.md`), `glyphh-sign-in/SKILL.md` |
 | `types/index.d.ts` | The account's types and the `$.state` contract |

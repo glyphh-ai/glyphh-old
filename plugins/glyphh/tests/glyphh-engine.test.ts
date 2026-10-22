@@ -107,17 +107,19 @@ test('/glyphh after the sign-in card signed in (install.json written mid-session
 })
 
 for (const surface of SURFACES) {
-  test(`${surface}: Plan shows precedents, hosting and the plans; Billing offers checkout, Talk to us and no seats`, async ($, on) => {
+  test(`${surface}: Plan shows the cloud use and the plans' caps; Billing offers checkout, Talk to us and no seats`, async ($, on) => {
     const w = world(on, surface)
     w.files.set(`${HOME}/.glyphh/install.json`, JSON.stringify({ install_id: 'i1', token: w.server.TOKEN }))
     await $.session.start({ cwd: '/proj', surface, isInteractive: true })
     const ui = await $.ui.mount(pane(surface))
     await ui.press({ key: 'sec-plan' })
-    expect(await ui.find({ type: 'Text', text: /Managed precedents: none on this plan/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /Hosting this month \(2026-10\): \$0/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /Team · \$299\/month · 1,000,000 managed precedents · 10 hosted machines/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /Precedents: 4,321 of 5,000, in 2 models/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /Reads 2026-10: 1,234 of 10,000/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /start again 2026-11-01/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /Team · \$299\/month · 1,000,000 precedents · 5,000,000 reads a month · then \$1 per 10,000/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /Enterprise · By contract/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /seat/ })).toBeUndefined()
+    expect(await ui.find({ type: 'Text', text: /[Ll]icen[cs]e|machine|runtime|[Hh]osting|self-hosted/ })).toBeUndefined()
 
     await ui.press({ key: 'sec-billing' })
     expect((await ui.find({ type: 'Button', key: 'bill-plan-Pro' }))?.props.label).toBe('checkout')

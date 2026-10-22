@@ -1,9 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
-import { signedIn } from '../hooks/glyphh/account'
+import { signOut, signedIn } from '../hooks/glyphh/account'
 import { ApiError, api, describe } from '../hooks/glyphh/api'
-import { keyPair } from '../hooks/glyphh/ed25519'
-import { canonical, check, loadLicense, refreshLicense } from '../hooks/glyphh/license'
 import { HOME, fakeHost } from './fake-host'
 
 const signIn = async (w: ReturnType<typeof fakeHost>) => signedIn(w.gh, 'i1', w.server.TOKEN)
@@ -34,9 +32,10 @@ test('client: refusals read as {error: {code, message, trace_id}}; E_LIMIT names
   expect(err).toBeInstanceOf(ApiError)
   expect(err).toMatchObject({ code: 'E_INVALID', status: 422, detail: { reason: 'not_self_serve' } })
   expect(describe(err)).toBe('Enterprise is by contract: talk to us at sales@glyphh.ai. (trace tr-1)')
-  // A hosted machine past the plan's count, as glyphh_server.ops.limits says it.
-  const limit = new ApiError('E_LIMIT', 'Your Pro plan allows 3 hosted machines. Team allows more.', 403, { reason: 'machines', limit: 'machines', used: 3, max: 3, plan: 'Team' }, 'tr-2')
-  expect(describe(limit)).toBe('Your Pro plan allows 3 hosted machines. Team allows more. (3 of 3 machines used) (trace tr-2)')
+  // The month's reads used up on Free, as glyphh_ada.api.meter says it.
+  const said = "Your Free plan's 10,000 Ada reads this month are used: they start again on 2026-11-01. Upgrade to Basic (the connector's upgrade tool, or Billing on the platform) to read on now."
+  const limit = new ApiError('E_LIMIT', said, 429, { reason: 'requests', used: 10000, max: 10000, plan: 'Free', upgrade: 'Basic', resets_at: '2026-11-01' }, 'tr-2')
+  expect(describe(limit)).toBe(`${said} (10,000 of 10,000 reads used) (trace tr-2)`)
   const missing = await api(w.gh, 'DELETE', '/v1/nothing/zzz').catch(e => e)
   expect(describe(missing)).toBe('No route DELETE /v1/nothing/zzz (trace tr-1)')
 })
@@ -62,58 +61,14 @@ test('storage: install.json is written 0600 through the umask writer, never fs.w
   expect(writes).not.toContain(path)
   expect(w.argvs.find(a => a[0] === '/bin/sh')?.join(' ')).not.toContain(w.server.TOKEN) // stdin only
   expect(await w.note()).toBe('Signed in.')
+  expect(w.s.calls.some(c => c.path.startsWith('/v1/license'))).toBe(false) // no licence: Ada Cloud is the product
 })
 
-test('license: checked with Ed25519 against the key, and kept', async () => {
+test('sign-out forgets install.json and a licence.json an older plugin left', async () => {
   const w = fakeHost()
-  await signIn(w) // fetches the license too
-  const info = await w.gh.state.license.get()
-  expect(info?.ok).toBe(true)
-  expect(info).toMatchObject({ plan: 'Pro', limits: { machines: 3 }, features: { sync: true, offline: false } })
-  expect(w.files.has(`${HOME}/.glyphh/license.json`)).toBe(true)
-  expect((await loadLicense(w.gh))?.ok).toBe(true)
-
-  w.s.licenseTamper = true
-  w.files.delete(`${HOME}/.glyphh/license.json`)
-  const bad = await refreshLicense(w.gh)
-  expect(bad.ok).toBe(false)
-  expect(bad.error).toBe('signature does not check out')
-  expect(w.files.has(`${HOME}/.glyphh/license.json`)).toBe(false) // a bad one is never kept
-})
-
-test('license: expired is not valid; JWS and canonical-JSON forms check too', async () => {
-  const w = fakeHost()
-  w.s.licenseExpires = '2000-01-01T00:00:00Z'
   await signIn(w)
-  expect(await w.gh.state.license.get()).toMatchObject({ ok: false, error: 'expired' })
-
-  const { publicKey, sign } = await keyPair(new Uint8Array(32).fill(3))
-  const b64 = (b: Uint8Array) => btoa(String.fromCharCode(...b))
-  const b64u = (b: Uint8Array) => b64(b).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-  const key = { kty: 'OKP', crv: 'Ed25519', x: b64u(publicKey) }
-  const claims = { plan: 'Team', limits: { machines: 10 }, features: { sync: true } }
-  const head = b64u(new TextEncoder().encode('{"alg":"EdDSA"}'))
-  const body = b64u(new TextEncoder().encode(JSON.stringify(claims)))
-  const jws = `${head}.${body}.${b64u(await sign(new TextEncoder().encode(`${head}.${body}`)))}`
-  expect((await check({ token: jws }, key, 0)).ok).toBe(true)
-  const sig = b64(await sign(new TextEncoder().encode(canonical(claims))))
-  expect(await check({ license: claims, signature: sig }, { public_key: b64(publicKey) }, 0)).toMatchObject({ ok: true, plan: 'Team' })
-  expect(canonical({ b: 1, a: 'é' })).toBe('{"a":"\\u00e9","b":1}')
-})
-
-test("license: the server's own answer, signed by glyphh_server.ops.license, checks", async () => {
-  const payload = {
-    install_id: '11111111-1111-1111-1111-111111111111',
-    user_id: '22222222-2222-2222-2222-222222222222',
-    org_id: '33333333-3333-3333-3333-333333333333',
-    plan: 'Café Pro',
-    limits: { machines: 3 },
-    features: { sync: true, ha: false, offline: false, sso: false },
-    mods: { ada: { limits: { precedents: null } } },
-    expires_at: '2099-01-01T00:00:00Z',
-  }
-  const signature = 'hzExdxvpRoHPoXi9LPFma4U7Eq3QxZhcP/ta096BPCpK0S55hNqwk0RHwTspehBGV18dSSlzEURNFCQ+pb9qDQ=='
-  const key = { alg: 'Ed25519', public_key: 'bnoc3Smwt4/ROvTFWY/v9O8qlxZuPKby5Pv8zYBQW/E=' }
-  expect(await check({ payload, signature }, key, 0)).toMatchObject({ ok: true, plan: 'Café Pro', limits: { machines: 3 }, features: { sync: true } })
-  expect((await check({ payload: { ...payload, plan: 'Team' }, signature }, key, 0)).ok).toBe(false)
+  w.files.set(`${HOME}/.glyphh/license.json`, '{}')
+  await signOut(w.gh)
+  expect(w.files.has(`${HOME}/.glyphh/install.json`)).toBe(false)
+  expect(w.files.has(`${HOME}/.glyphh/license.json`)).toBe(false)
 })
