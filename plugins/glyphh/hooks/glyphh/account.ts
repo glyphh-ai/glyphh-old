@@ -1,10 +1,9 @@
-// The install's lifetime on this machine: signed in (install.json), the
-// account as the server says (/v1/me), signed out (the files removed).
+// The install's lifetime on this device: signed in (install.json), the
+// account as the server says (/v1/me), signed out (the file removed).
 
 import type { AuthState, Json } from '../../types'
 import { ApiError, api, describe, readInstall } from './api'
 import { glyphhPath, removeFile, writeSecret } from './home'
-import { loadLicense, refreshLicense } from './license'
 import { clearAccount, say } from './state'
 import type { Host } from './host'
 
@@ -14,7 +13,7 @@ export async function loadMe(gh: Host): Promise<Json> {
   return body
 }
 
-/** The token arrived: kept 0600, then the account and license are fetched. */
+/** The token arrived: kept 0600, then the account is fetched. */
 export async function signedIn(gh: Host, installId: string, token: string) {
   const path = await glyphhPath(gh, 'install.json')
   if (!path) throw new Error('HOME is not set: nowhere to keep the sign-in')
@@ -22,10 +21,10 @@ export async function signedIn(gh: Host, installId: string, token: string) {
   await gh.state.auth.set((): AuthState => ({ status: 'in', install_id: installId }))
   await say(gh, 'Signed in.')
   await loadMe(gh).catch(err => say(gh, describe(err), true))
-  await refreshLicense(gh).catch(() => undefined)
 }
 
-/** This machine forgets the install: install.json and license.json go. */
+/** This device forgets the install: install.json goes (and license.json,
+ *  left by plugins before 1.1.5). */
 export async function forget(gh: Host, error?: string) {
   for (const name of ['install.json', 'license.json']) {
     const path = await glyphhPath(gh, name)
@@ -46,16 +45,14 @@ export async function initAccount(gh: Host, wait = false) {
   const install = await readInstall(gh)
   if (!install) return
   await gh.state.auth.set((): AuthState => ({ status: 'in', install_id: install.install_id }))
-  await loadLicense(gh).catch(() => undefined)
   if (wait) await refresh(gh)
   else void refresh(gh)
 }
 
-/** The account and license again; a revoked install signs this machine out. */
+/** The account again; a revoked install signs this device out. */
 export async function refresh(gh: Host) {
   try {
     await loadMe(gh)
-    await refreshLicense(gh)
   } catch (err) {
     await failed(gh, err)
   }

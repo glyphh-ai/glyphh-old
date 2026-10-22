@@ -1,75 +1,55 @@
-// Plan: the org's plan, the managed precedents its hosted runtimes hold of
-// the plan's bucket, its hosting this month (/v1/me), the license this
-// machine holds, and every plan (/v1/plans). Members and installs are
-// unlimited on every plan, so neither is counted here.
+// Plan: the org's plan, what it uses of Ada Cloud this month (`cloud` on
+// /v1/me: precedents held, reads, when the count starts again, reads past the
+// month), and every plan by price with its cloud caps (/v1/plans). Members,
+// installs and models are unlimited on every plan, so none is counted here.
 
-import type { Json, LicenseInfo } from '../../../types'
-import { count, hostingOf, limitText, money, obj, planLimits, planName, planOf, precedentsOf, priceText, str } from '../shape'
+import type { Json } from '../../../types'
+import { cloudLimits, cloudOf, count, many, money, obj, planName, priceText, str } from '../shape'
 import type { Ctx } from '../ui'
 
-const FEATURES: [string, string][] = [
-  ['sync', 'sync'],
-  ['ha', 'HA'],
-  ['offline', 'offline licences'],
-  ['sso', 'SSO'],
-]
-
-/** What the plan's managed bucket holds: none on Free, where only local and
- *  self-hosted runtimes run (at Community's 5,000 precedents a node). */
-export function precedentsLine(me: Json | null): string {
-  const p = precedentsOf(me)
-  const limit = p.limit === undefined ? obj(planOf(me).limits).precedents : p.limit
-  if (limit === 0) return 'Managed precedents: none on this plan (local and self-hosted runtimes: 5,000 a node)'
-  return `Managed precedents: ${count(p.used ?? 0)} of ${limit === null || limit === undefined ? 'unlimited' : count(limit)}`
-}
-
-/** The hosted machines' month so far, all in, and each machine's own. */
-export function hostingLines(me: Json | null): string[] {
-  const h = hostingOf(me)
-  const machines = Array.isArray(h.machines) ? (h.machines as Json[]) : []
-  const total = typeof h.month_to_date_cents === 'number' ? h.month_to_date_cents : 0
-  const month = h.month ? ` (${str(h.month)})` : ''
+/** The org's use of Ada Cloud: precedents held of the plan's, reads this
+ *  month of the plan's (and those past it, metered at the plan's rate), and
+ *  when the month's count starts again. No `cloud` yet: one line saying so. */
+export function usageLines(me: Json | null, plan?: Json): string[] {
+  const c = cloudOf(me)
+  if (!Object.keys(c).length) return ['Ada Cloud usage: not available yet.']
+  const held = obj(c.precedents)
+  const reads = obj(c.requests)
+  const models = typeof c.models === 'number' ? c.models : 0
+  const rate = obj(plan?.cloud).overage_cents_per_10k
+  const per = typeof rate === 'number' ? ` at ${money(rate)} per 10,000` : ''
+  const over = typeof reads.over === 'number' && reads.over > 0 ? `; ${count(reads.over)} past it, metered${per}` : ''
+  const of = (cap: Json) => `${count(cap.used ?? 0)}${cap.max == null ? ` (${many(cap.max)})` : ` of ${many(cap.max)}`}`
   return [
-    `Hosting this month${month}: ${money(total)}${machines.length ? '' : ', no hosted machines'}`,
-    ...machines.map(m => `  ${str(m.name)} · ${str(m.size)} · ${money(typeof m.cents === 'number' ? m.cents : 0)}`),
+    `Precedents: ${of(held)}, in ${models} model${models === 1 ? '' : 's'}`,
+    `Reads ${str(c.month, 'this month')}: ${of(reads)}${over}`,
+    `The month's reads start again ${str(c.resets_at, 'next month')}.`,
   ]
 }
 
-/** The license as checked: valid or why not, until when, its plan, its
- *  hosted machines and the features it carries. */
-export function licenseLine(lic: LicenseInfo | null): string {
-  if (!lic) return 'License: none yet.'
-  const state = lic.ok ? 'valid' : `not valid (${lic.error ?? 'unknown'})`
-  const until = lic.expires_at ? `, until ${lic.expires_at}` : ''
-  const machines = 'machines' in lic.limits ? ` · hosted machines ${limitText(lic.limits.machines)}` : ''
-  const on = FEATURES.filter(([k]) => lic.features?.[k]).map(([, label]) => label)
-  return `License: ${state}${until}${lic.plan ? ` · ${lic.plan}` : ''}${machines}${on.length ? ` · ${on.join(', ')}` : ''}`
-}
-
-export async function Plan(ctx: Ctx) {
-  const { gh, me, lists } = ctx
+export function Plan(ctx: Ctx) {
+  const { me, lists } = ctx
   const { Box, Text } = ctx.ui
-  const lic = await gh.state.license.get()
   const plans = lists.plans ?? []
+  const name = str(cloudOf(me).plan ?? obj(me?.plan).name).toLowerCase()
+  const current = plans.find(p => str(p.name).toLowerCase() === name) ?? obj(me?.plan)
   return (
     <Box flexDirection="column" gap={1}>
       <Text bold>Plan: {planName(me)}</Text>
       <Box flexDirection="column">
-        <Text>{precedentsLine(me)}</Text>
-        {hostingLines(me).map((line, i) => (
-          <Text key={`host-${i}`}>{line}</Text>
+        {usageLines(me, current).map((line, i) => (
+          <Text key={`use-${i}`}>{line}</Text>
         ))}
       </Box>
-      <Text dimColor>{licenseLine(lic)}</Text>
       <Box flexDirection="column">
         <Text bold>Plans</Text>
         {plans.length === 0 && <Text dimColor>Loading plans…</Text>}
         {plans.map(p => (
           <Text key={`plan-${str(p.name)}`}>
-            {str(p.name)} · {priceText(p)} · {planLimits(p)}
+            {str(p.name)} · {priceText(p)} · {cloudLimits(p)}
           </Text>
         ))}
-        <Text dimColor>Members, installs, models and self-hosted runtimes are unlimited on every plan.</Text>
+        <Text dimColor>Members, installs and models are unlimited on every plan.</Text>
       </Box>
     </Box>
   )
