@@ -128,11 +128,24 @@ export interface Change {
   job: Job | null;
 }
 
+/**
+ * `GET /v1/usage`: what the org uses of Ada Cloud against its plan, in the calendar `month` counted (YYYY-MM, UTC),
+ * which starts again on `resets_at` (YYYY-MM-DD): its live `models`, the `precedents` they hold, its `requests`, and
+ * the calls a second the plan allows. A null `max` (or `requests_per_second`) is by contract: no cap.
+ */
 export interface Usage {
-  plan: string | null;
+  plan: string;
+  month: string;
+  resets_at: string;
   models: number;
   precedents: { used: number; max: number | null };
-  requests: { used: number; max: number | null } | null;
+  /**
+   * Reads this month (decide, query, probabilities, facts; a decide of several outputs once per output). `overage`:
+   * past the month they go on, metered (Pro, Team), `over` of them so far; else (Free) they are refused, LimitError
+   * `requests`, until `resets_at`.
+   */
+  requests: { used: number; max: number | null; over: number; overage: boolean };
+  requests_per_second: number | null;
 }
 
 export interface ModelInfo {
@@ -203,13 +216,48 @@ export class AdaError extends Error {
 export class AuthError extends AdaError {
   override name = "AuthError";
 }
-/** E_LIMIT: the plan's limit is reached; `detail` has `reason` (precedents, requests, cases), `used`, `max`. */
+const str = (value: unknown) => (typeof value === "string" ? value : undefined);
+const num = (value: unknown) => (typeof value === "number" ? value : undefined);
+
+/**
+ * E_LIMIT (403): the plan's limit is reached. `reason` names it: `requests` (the month's reads are used on a plan that
+ * is not metered, Free: `plan`, the plan to `upgrade` to, null when only a contract reads more, and `resetsAt`,
+ * YYYY-MM-DD, when they start again), `precedents` (a write past the plan's precedents: `detail.adding`), or `cases`
+ * (413, recordMany past 1,000). `used` and `max` say where the org stands.
+ */
 export class LimitError extends AdaError {
   override name = "LimitError";
+  get reason(): string | undefined {
+    return str(this.detail.reason);
+  }
+  get used(): number | undefined {
+    return num(this.detail.used);
+  }
+  get max(): number | undefined {
+    return num(this.detail.max);
+  }
+  get plan(): string | undefined {
+    return str(this.detail.plan);
+  }
+  /** The self-serve plan that reads more (Billing on the platform, or the connector's upgrade tool); null: talk to sales. */
+  get upgrade(): string | null | undefined {
+    return this.detail.upgrade === null ? null : str(this.detail.upgrade);
+  }
+  /** When the month's requests start again, YYYY-MM-DD (UTC). */
+  get resetsAt(): string | undefined {
+    return str(this.detail.resets_at);
+  }
 }
-/** E_RATE (429): too many requests a second; retried while the deadline allows. */
+/**
+ * E_RATE (429): more calls a second than the plan allows (Free 5, Pro 50, Team 200), the org's together. The client
+ * waits `retryAfter` seconds (the Retry-After header, else the body's `retry_after`) and asks again while its deadline
+ * allows; thrown after that. `max` is the plan's calls a second.
+ */
 export class RateError extends AdaError {
   override name = "RateError";
+  get max(): number | undefined {
+    return num(this.detail.max);
+  }
 }
 /** E_INVALID: the request is not valid (`detail.problems`), or a string holds NUL. */
 export class InvalidError extends AdaError {
@@ -434,7 +482,8 @@ function refusal(status: number, text: string, headers: Record<string, string>):
     (message as string | undefined) ?? `Ada answered ${status}`,
     status,
     detail,
-    retryAfter(headers["retry-after"]),
+    // the header, else a refusal's own (E_RATE's retry_after)
+    retryAfter(headers["retry-after"]) ?? num(detail.retry_after),
   );
 }
 

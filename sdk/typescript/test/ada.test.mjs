@@ -261,12 +261,14 @@ for (const [name, error] of [
   ["a model that is not there", ModelMissingError],
   ["a spec that reads a role another way", SpecReadingError],
   ["cases past the plan's precedents", LimitError],
+  ["past the plan's month of requests", LimitError],
+  ["past the plan's calls a second", RateError],
   ["a big model asked with few of its roles", FewRolesError],
   ["another import open on the model", BusyError],
 ]) {
   test(`a refusal is its typed error: ${name}`, async () => {
     const c = byName(name);
-    const { ada, calls } = fake(answered(name));
+    const { ada, calls } = fake(answered(name), { retryDeadline: 0 });
     await assert.rejects(ada.call(c.request.method, c.request.path, c.request.body ?? undefined), (e) => {
       const sent = c.response.body.error;
       assert.ok(e instanceof error && e instanceof AdaError);
@@ -274,6 +276,17 @@ for (const [name, error] of [
       const { code, message, ...detail } = sent;
       assert.deepEqual(e.detail, detail);
       if (error === SpecReadingError) assert.ok(e instanceof SpecError);
+      if (name === "cases past the plan's precedents") {
+        assert.deepEqual([e.reason, e.used, e.max, e.upgrade, e.resetsAt], ["precedents", 4995, 5000, undefined, undefined]);
+      }
+      if (name === "past the plan's month of requests") {
+        assert.deepEqual([e.reason, e.plan, e.upgrade, e.max], ["requests", "Free", "Pro", 10000]);
+        assert.deepEqual([e.used, e.resetsAt], [sent.used, sent.resets_at]);
+      }
+      if (error === RateError) {
+        assert.equal(e.retryAfter, Number(c.response.headers["retry-after"]));
+        assert.deepEqual([e.retryAfter, e.max], [sent.retry_after, 5]);
+      }
       return true;
     });
     assert.equal(calls.length, 1);
@@ -370,9 +383,25 @@ test("the URL defaults to Ada Cloud, and the key comes from the environment", as
   assert.equal(new Ada().url, "https://old.example");
   process.env.GLYPHH_ADA_URL = "http://ada:8080/";
   assert.equal(new Ada().url, "http://ada:8080");
-  const { ada, calls } = fake([200, { plan: "Free", models: 0, precedents: { used: 0, max: 5000 }, requests: null }]);
-  assert.equal((await ada.usage()).precedents.max, 5000);
+});
+
+test("usage is the server's shape: the month, its reset, precedents, requests and calls a second", async () => {
+  const sent = byName("the org's usage").response.body;
+  const { ada, calls } = fake(answered("the org's usage"));
+  const usage = await ada.usage();
   assert.equal(calls[0].path, "/v1/usage");
+  assert.deepEqual(usage, sent);
+  assert.deepEqual([usage.plan, usage.precedents.max, usage.requests.max, usage.requests.over, usage.requests.overage, usage.requests_per_second], ["Free", 5000, 10000, 0, false, 5]);
+  assert.match(usage.month, /^\d{4}-\d{2}$/);
+  assert.match(usage.resets_at, /^\d{4}-\d{2}-01$/);
+});
+
+test("a rate refusal without the header waits as its body says", async () => {
+  const { slept, clock } = fakeClock();
+  const body = { error: { code: "E_RATE", message: "Your plan allows 5 Ada calls a second: try again in 2 seconds.", retry_after: 2, reason: "rate", max: 5 } };
+  const { ada } = fake([429, body], answered("a decision"), { clock });
+  assert.ok((await ada.decide("tickets", {})).outcome);
+  assert.deepEqual(slept, [2]);
 });
 
 // a self-hosted cluster's refusals and read-your-writes, kept from 3.1 (nothing of them reaches the cloud)

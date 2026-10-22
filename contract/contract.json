@@ -82,14 +82,26 @@
   "usage": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "Usage",
-    "description": "GET /v1/usage: the org's plan, its models, the precedents they hold against the plan's cap (max null: no cap), and the requests this period (null until requests are metered)",
+    "description": "GET /v1/usage (the same object is `cloud` on the account API's /v1/me and /v1/billing): the org's plan, the calendar month counted (UTC) and the day it starts again, its live models, the precedents they hold against the plan's, its requests this month against the plan's (reads: decide, query, probabilities, facts; a decide of several outputs once per output; `over`: past the month, metered on Pro and Team; `overage` false: refused past it, E_LIMIT requests), and the plan's calls a second. A null max is by contract: no cap",
     "type": "object",
-    "required": ["plan", "models", "precedents", "requests"],
+    "required": ["plan", "month", "resets_at", "models", "precedents", "requests", "requests_per_second"],
     "properties": {
-      "plan": { "type": ["string", "null"] },
+      "plan": { "type": "string" },
+      "month": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}$" },
+      "resets_at": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
       "models": { "type": "integer", "minimum": 0 },
       "precedents": { "$ref": "#/$defs/used" },
-      "requests": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/used" }] }
+      "requests": {
+        "allOf": [
+          { "$ref": "#/$defs/used" },
+          {
+            "type": "object",
+            "required": ["over", "overage"],
+            "properties": { "over": { "type": "integer", "minimum": 0 }, "overage": { "type": "boolean" } }
+          }
+        ]
+      },
+      "requests_per_second": { "type": ["integer", "null"], "minimum": 1 }
     },
     "$defs": {
       "used": {
@@ -149,7 +161,7 @@
   "error": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "Error",
-    "description": "Every refusal: a stable code to branch on, a message for people, the trace id to quote to support, and the refusal's own detail beside them (E_LIMIT: reason, used, max, adding; E_SPEC: path; E_SPEC_LIMIT: limit, max; E_SPEC_READING: roles; E_BUSY: job, kind; E_INVALID: problems or reason). A 429 or 503 may carry Retry-After",
+    "description": "Every refusal: a stable code to branch on, a message for people, the trace id to quote to support, and the refusal's own detail beside them (E_LIMIT precedents: reason, used, max, adding; E_LIMIT requests, 403, the month's reads used on a plan that is not metered: reason, used, max, plan, upgrade (the self-serve plan that reads more, null: talk to sales), resets_at (YYYY-MM-DD); E_RATE, 429, past the plan's calls a second: reason, max, retry_after, and the Retry-After header; E_SPEC: path; E_SPEC_LIMIT: limit, max; E_SPEC_READING: roles; E_BUSY: job, kind; E_INVALID: problems or reason). A 429 or 503 may carry Retry-After",
     "type": "object",
     "required": ["error"],
     "properties": {

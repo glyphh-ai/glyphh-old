@@ -28,12 +28,14 @@ from glyphh import (
     ModelMissingError,
     NoHeadError,
     NotCommittedError,
+    RateError,
     ReadOnlyError,
     Result,
     RunLostError,
     SpecError,
     SpecReadingError,
     UnavailableError,
+    Usage,
 )
 
 ROOT = Path(__file__).parents[3]
@@ -307,21 +309,28 @@ def test_record_many_sends_a_thousand_a_request_each_made_once():
         ("a model that is not there", ModelMissingError),
         ("a spec that reads a role another way", SpecReadingError),
         ("cases past the plan's precedents", LimitError),
+        ("past the plan's month of requests", LimitError),
+        ("past the plan's calls a second", RateError),
         ("a big model asked with few of its roles", FewRolesError),
         ("another import open on the model", BusyError),
     ],
 )
 def test_a_refusal_is_its_typed_error(name, error):
     c = case(name)
-    client, fake = ada(answered(name))
+    client, fake = ada(answered(name), retry_deadline=0)
     with pytest.raises(error) as caught:
         client._call(c["request"]["method"], c["request"]["path"], c["request"]["body"])
     err, sent = caught.value, c["response"]["body"]["error"]
     assert isinstance(err, AdaError) and (err.code, err.status, err.message) == (sent["code"], c["response"]["status"], sent["message"])
     assert err.detail == {k: v for k, v in sent.items() if k not in ("code", "message")} and err.trace_id == sent["trace_id"]
     assert len(fake.calls) == 1
-    if error is LimitError:
-        assert (err.reason, err.used, err.max) == ("precedents", 4995, 5000)
+    if name == "cases past the plan's precedents":
+        assert (err.reason, err.used, err.max, err.upgrade, err.resets_at) == ("precedents", 4995, 5000, None, None)
+    if name == "past the plan's month of requests":
+        assert (err.reason, err.plan, err.upgrade) == ("requests", "Free", "Pro")
+        assert (err.used, err.max, err.resets_at) == (sent["used"], sent["max"], sent["resets_at"]) and err.max == 10_000
+    if error is RateError:
+        assert err.retry_after == float(c["response"]["headers"]["retry-after"]) == sent["retry_after"] and err.max == 5
     if error is SpecReadingError:
         assert isinstance(err, SpecError) and err.path is None
 
@@ -428,9 +437,34 @@ def test_the_url_defaults_to_ada_cloud_and_the_key_comes_from_the_environment(mo
     assert (Ada().key, Ada().url) == ("glyphh_ak_env", "https://old.example")
     monkeypatch.setenv("GLYPHH_ADA_URL", "http://ada:8080/")
     assert Ada().url == "http://ada:8080"
-    client, fake = ada((200, {"plan": "Free", "models": 0, "precedents": {"used": 0, "max": 5000}, "requests": None}))
-    validate(client.usage(), CONTRACT["usage"])
-    assert paths(fake) == [("GET", "/v1/usage")]
+
+
+def test_usage_is_typed_in_the_servers_shape():
+    c = case("the org's usage")
+    client, fake = ada(answered("the org's usage"))
+    usage = client.usage()
+    assert isinstance(usage, Usage) and paths(fake) == [("GET", "/v1/usage")]
+    sent = c["response"]["body"]
+    assert (usage.plan, usage.month, usage.resets_at, usage.models) == (sent["plan"], sent["month"], sent["resets_at"], sent["models"])
+    assert (usage.precedents.used, usage.precedents.max) == (sent["precedents"]["used"], 5000)
+    r = usage.requests
+    assert (r.used, r.max, r.over, r.overage, usage.requests_per_second) == (sent["requests"]["used"], 10_000, 0, False, 5)
+    assert usage["plan"] == "Free" and usage.data == sent  # reads as the answer's dict too
+    # Team past its month, metered; Enterprise, by contract: no caps
+    team = {**sent, "plan": "Team", "requests": {"used": 5_012_345, "max": 5_000_000, "over": 12_345, "overage": True}, "requests_per_second": 200}
+    enterprise = {**sent, "plan": "Enterprise", "precedents": {"used": 9, "max": None}, "requests": {"used": 3, "max": None, "over": 0, "overage": False}, "requests_per_second": None}
+    for body in (team, enterprise):
+        validate(body, CONTRACT["usage"])
+    client, _ = ada((200, team), (200, enterprise))
+    t, e = client.usage(), client.usage()
+    assert (t.requests.over, t.requests.overage, t.requests_per_second) == (12_345, True, 200)
+    assert (e.precedents.max, e.requests.max, e.requests_per_second) == (None, None, None)
+
+
+def test_a_rate_refusal_without_the_header_waits_as_its_body_says(clock):
+    body = {"error": {"code": "E_RATE", "message": "Your plan allows 5 Ada calls a second: try again in 2 seconds.", "retry_after": 2, "reason": "rate", "max": 5}}
+    client, fake = ada((429, body), answered("a decision"))
+    assert client.decide("tickets", {}).outcome and clock == [2.0]
 
 
 # a self-hosted cluster's refusals and read-your-writes, kept from 3.1 (nothing of them reaches the cloud)
