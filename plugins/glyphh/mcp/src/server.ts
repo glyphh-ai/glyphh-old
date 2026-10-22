@@ -67,7 +67,7 @@ const failure = (err: unknown) => ({
 
 function signInTool(server: McpServer, flow: SignIn) {
   const description =
-    'Sign this machine in to Glyphh: shows a sign-in card with a code and a Sign in button, or says who is signed in already.'
+    'Sign this device in to Glyphh: shows a sign-in card with a code and a Sign in button, or says who is signed in already.'
   const config = { title: 'Sign in to Glyphh', description, inputSchema: {}, _meta: { ui: { resourceUri: CARD_URI } } }
   server.registerTool('glyphh_sign_in', config, async () => {
     try {
@@ -98,7 +98,7 @@ function openTool(server: McpServer) {
   const base = (process.env.GLYPHH_SERVER_URL || 'https://api.glyphh.ai').replace(/\/$/, '')
   const _meta = { ui: { resourceUri: CARD_URI, visibility: ['app'] } }
   const inputSchema = { url: z.string() }
-  server.registerTool('glyphh_sign_in_open', { title: 'Open the Glyphh sign-in page', description: 'Opens the sign-in page in this machine\'s browser. Called by the card.', inputSchema, _meta }, async ({ url }) => {
+  server.registerTool('glyphh_sign_in_open', { title: 'Open the Glyphh sign-in page', description: 'Opens the sign-in page in this device\'s browser. Called by the card.', inputSchema, _meta }, async ({ url }) => {
     const ok = url.startsWith(`${base}/v1/device?code=`)
     if (ok) await openInClaude(url)
     return { content: [{ type: 'text' as const, text: ok ? 'opened' : 'refused' }], structuredContent: { opened: ok } }

@@ -87,7 +87,6 @@ const freshState = (): Host['state'] => ({
   lists: value({}),
   note: value(null),
   inviteLink: value(null),
-  license: value(null),
 })
 
 export function fakeHost(opts: { surface?: RenderSurface; server?: string } = {}) {

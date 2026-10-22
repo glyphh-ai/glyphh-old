@@ -9,10 +9,9 @@ export const str = (v: unknown, fallback = ''): string => (v === undefined || v 
 export const userOf = (me: Json | null): Json => obj(me?.user ?? me)
 export const orgOf = (me: Json | null): Json => obj(me?.org)
 export const planOf = (me: Json | null): Json => obj(me?.plan ?? orgOf(me).plan)
-/** The managed precedents the org's hosted runtimes hold, of the plan's bucket: `{used, limit}`. */
-export const precedentsOf = (me: Json | null): Json => obj(me?.precedents)
-/** The hosted machines' month so far: `{month, month_to_date_cents, machines}`. */
-export const hostingOf = (me: Json | null): Json => obj(me?.hosting)
+/** The org's Ada Cloud use (/v1/me's `cloud`): `{plan, month, resets_at, models,
+ *  precedents: {used, max}, requests: {used, max, over, overage}, requests_per_second}`. */
+export const cloudOf = (me: Json | null): Json => obj(me?.cloud)
 
 export const isAdmin = (me: Json | null): boolean => str(userOf(me).role ?? me?.role ?? orgOf(me).role) === 'admin'
 
@@ -23,8 +22,8 @@ export const planName = (me: Json | null): string => {
   return `${str(plan.name, 'unknown')}${plan.version !== undefined ? ` (v${str(plan.version)})` : ''}`
 }
 
-/** A limit as read: empty is unlimited. */
-export const limitText = (v: unknown): string => (v === null || v === undefined ? 'unlimited' : String(v))
+/** A cap as read: null is by contract (Enterprise), else the count. */
+export const many = (v: unknown): string => (v === null || v === undefined ? 'by contract' : count(v))
 
 /** An id from an item that may call it `id`, `user_id` or `install_id`. */
 export const idOf = (item: Json, ...keys: string[]): string => str([...keys, 'id'].map(k => item[k]).find(v => v !== undefined))
@@ -52,10 +51,13 @@ export const priceText = (plan: Json): string => {
   return plan.interval === 'month' || plan.interval === 'year' ? `${money(cents)}/${plan.interval}` : money(cents)
 }
 
-/** A plan's managed precedents and hosted machines, e.g. 100,000 managed
- *  precedents · 3 hosted machines; null is unlimited, 0 is none. */
-export const planLimits = (plan: Json): string => {
-  const limits = obj(plan.limits)
-  const of = (v: unknown, what: string) => (v === null || v === undefined ? `unlimited ${what}` : v === 0 ? `no ${what}` : `${count(v)} ${what}`)
-  return `${of(limits.precedents, 'managed precedents')} · ${of(limits.machines, 'hosted machines')}`
+/** A plan's Ada Cloud caps as GET /v1/plans says them (`cloud`), e.g.
+ *  100,000 precedents · 1,000,000 reads a month · then $1 per 10,000; none
+ *  past the month where it meters none; by contract where it caps none. */
+export const cloudLimits = (plan: Json): string => {
+  const c = obj(plan.cloud)
+  if (c.precedents == null && c.requests_per_month == null) return 'by contract'
+  const rate = c.overage_cents_per_10k
+  const past = c.overage && typeof rate === 'number' ? `then ${money(rate)} per 10,000` : 'none past the month'
+  return `${many(c.precedents)} precedents · ${many(c.requests_per_month)} reads a month · ${past}`
 }

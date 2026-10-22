@@ -18,7 +18,16 @@ there is nothing to install or host. Claude reaches it through the Glyphh connec
 and the Ada skill; your software through the SDKs with an API key.
 
 - Platform (sign in, models, API keys, usage): https://platform.glyphh.ai
-- Pricing: https://glyphh.ai/pricing. Plans sell precedents held and requests a month; Free included.
+- Pricing: https://glyphh.ai/pricing. Plans sell precedents held and reads a month; members, keys and models are
+  unlimited on each.
+
+| Plan | Price | Precedents | Reads a month | Calls a second | Reads past the month |
+|---|---|---|---|---|---|
+| Free | $0 | 5,000 | 10,000 | 5 | Refused until the month turns |
+| Basic | $20/month | 10,000 | 50,000 | 10 | $1 per 10,000 |
+| Pro | $99/month | 100,000 | 1,000,000 | 50 | $1 per 10,000 |
+| Team | $299/month | 1,000,000 | 5,000,000 | 200 | $1 per 10,000 |
+| Enterprise | By contract | By contract | By contract | By contract | By contract |
 
 ## The API
 

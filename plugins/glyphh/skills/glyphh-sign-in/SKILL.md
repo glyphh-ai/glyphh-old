@@ -1,6 +1,6 @@
 ---
 name: glyphh-sign-in
-description: Sign this machine in to Glyphh. Use when the user asks to sign in, log in or connect to Glyphh, or asks whether they are signed in to Glyphh.
+description: Sign this device in to Glyphh. Use when the user asks to sign in, log in or connect to Glyphh, or asks whether they are signed in to Glyphh.
 ---
 
 # Sign in to Glyphh

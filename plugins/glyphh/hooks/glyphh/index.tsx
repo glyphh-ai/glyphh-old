@@ -5,7 +5,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, RenderSurface } from 'claude-code'
 
-import type { AuthState, GlyphhNote, GlyphhSection, Json, LicenseInfo } from '../../types'
+import type { AuthState, GlyphhNote, GlyphhSection, Json } from '../../types'
 import { glyphhCommand, startGlyphh } from './command'
 import type { Host } from './host'
 import { openUrl } from './open'
@@ -21,7 +21,6 @@ const me = atom({ plugin: 'glyphh', key: 'me' } as const, null as Json | null)
 const lists = atom({ plugin: 'glyphh', key: 'lists' } as const, {} as Record<string, Json[]>)
 const note = atom({ plugin: 'glyphh', key: 'note' } as const, null as GlyphhNote | null)
 const inviteLink = atom({ plugin: 'glyphh', key: 'inviteLink' } as const, null as string | null)
-const license = atom({ plugin: 'glyphh', key: 'license' } as const, null as LicenseInfo | null)
 
 function hostState($: EngineInterface): Host['state'] {
   return {
@@ -31,7 +30,6 @@ function hostState($: EngineInterface): Host['state'] {
     lists: { get: () => read($, lists), set: async fn => void (await update($, lists, fn)) },
     note: { get: () => read($, note), set: async fn => void (await update($, note, fn)) },
     inviteLink: { get: () => read($, inviteLink), set: async fn => void (await update($, inviteLink, fn)) },
-    license: { get: () => read($, license), set: async fn => void (await update($, license, fn)) },
   }
 }
 
@@ -86,7 +84,7 @@ async function start($: EngineInterface) {
   await $.tool.register({
     name: 'glyphh_login',
     description:
-      'Sign this machine in to Glyphh: shows the sign-in inline in the chat (the code). Use when the user asks to sign in ' +
+      'Sign this device in to Glyphh: shows the sign-in inline in the chat (the code). Use when the user asks to sign in ' +
       'or log in to Glyphh. When it answers state "pending", open its url in the browser pane right away (Claude_Browser ' +
       'preview_start) and tell the user in one line to approve the code there. Says who is signed in already.',
     inputSchema: { type: 'object', properties: {} },
