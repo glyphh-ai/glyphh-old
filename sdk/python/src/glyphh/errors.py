@@ -39,8 +39,10 @@ class AuthError(AdaError):
 
 
 class LimitError(AdaError):
-    """E_LIMIT: the plan's limit is reached. `reason` names it (`precedents`, `requests`, `cases`); `used`, `max` and
-    `plan` say where the org stands."""
+    """E_LIMIT (403): the plan's limit is reached. `reason` names it: `requests` (the month's reads are used on a plan
+    that is not metered, Free: `plan`, the plan to `upgrade` to, None when only a contract reads more, and `resets_at`,
+    YYYY-MM-DD, when they start again), `precedents` (a write past the plan's precedents: `adding`), or `cases` (413,
+    record_many past 1,000). `used` and `max` say where the org stands."""
 
     @property
     def reason(self) -> Optional[str]:
@@ -58,10 +60,26 @@ class LimitError(AdaError):
     def plan(self) -> Optional[str]:
         return self.detail.get("plan")
 
+    @property
+    def upgrade(self) -> Optional[str]:
+        """The self-serve plan that reads more (Billing on the platform, or the connector's upgrade tool); None: talk
+        to sales@glyphh.ai."""
+        return self.detail.get("upgrade")
+
+    @property
+    def resets_at(self) -> Optional[str]:
+        """When the month's requests start again, YYYY-MM-DD (UTC)."""
+        return self.detail.get("resets_at")
+
 
 class RateError(AdaError):
-    """E_RATE (429): too many requests a second for the plan. Retried by the client while its deadline allows,
-    honouring Retry-After; raised after that."""
+    """E_RATE (429): more calls a second than the plan allows (Free 5, Pro 50, Team 200), the org's together. The client
+    waits `retry_after` seconds (the Retry-After header, else the body's `retry_after`) and asks again while its
+    deadline allows; raised after that. `max` is the plan's calls a second."""
+
+    @property
+    def max(self) -> Optional[int]:
+        return self.detail.get("max")
 
 
 class InvalidError(AdaError):
@@ -222,5 +240,8 @@ TYPED: Dict[str, Type[AdaError]] = {
 def error(
     code: str, message: str, status: int = 0, detail: Optional[Dict[str, Any]] = None, retry_after: Optional[float] = None
 ) -> AdaError:
-    """The typed error for a code (AdaError for one the SDK does not know)."""
+    """The typed error for a code (AdaError for one the SDK does not know). A refusal that says when to ask again in
+    its body (E_RATE's `retry_after`) and not in a header is read from the body."""
+    if retry_after is None and detail and isinstance(detail.get("retry_after"), (int, float)):
+        retry_after = float(detail["retry_after"])
     return TYPED.get(code, AdaError)(code, message, status, detail, retry_after)

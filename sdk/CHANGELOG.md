@@ -17,7 +17,12 @@ Ada Cloud (the spec's "SDK 3.1"; 3.1.0 was already published, for clustered runt
 - Jobs, waited for with their progress (`on_progress` / `onProgress`): `import_file` / `importFile` (a path or bytes,
   to a signed upload link, then the import), `export` (and `download`), `backtest`, `calibrate`, `learn_job` /
   `learnJob`; `job`, `wait`. `learn` waits for a learn that outlasts `/v1/runs`'s minute.
-- `usage()`.
+- `usage()`, typed (`Usage`): `plan`, `month` and `resets_at`, `models`, `precedents` (`used`, `max`), `requests`
+  (`used`, `max`, `over`, `overage`) and `requests_per_second`, as the server answers it (and as `cloud` on the
+  account API's /v1/me and /v1/billing); in Python it reads as the answer's dict too.
+- `LimitError` carries `reason`, `used`, `max`, `plan`, `upgrade` (the plan that reads more; none: talk to sales) and
+  `resets_at` / `resetsAt` (when the month's requests start again); `RateError` (429 `E_RATE`, past the plan's calls
+  a second) carries `retry_after` / `retryAfter` from `Retry-After` (else the body's `retry_after`) and `max`.
 - Typed errors for the cloud's codes: `AuthError`, `LimitError`, `RateError`, `InvalidError`, `TooLargeError`,
   `ModelMissingError`, `JobMissingError`, `PrecedentMissingError`, `VersionMissingError`, `SpecError`,
   `SpecLimitError`, `SpecReadingError`, `FewRolesError`, `MappingError`, `ImportRefusedError`, `BacktestError`,
@@ -26,7 +31,8 @@ Ada Cloud (the spec's "SDK 3.1"; 3.1.0 was already published, for clustered runt
 - Every write carries an `Idempotency-Key`, so it is sent again, like a read, while Ada is unreachable for a moment
   (`E_UNAVAILABLE`, `E_TIMEOUT`, 502 to 504); a 429 is waited out by its `Retry-After` for any call.
 - `contract/contract.json` 4: `decision`, `job`, `usage` added; `answer`, `result`, `error` kept; the self-hosted
-  `limit_exceeded` and `cluster` entries gone (the SDKs keep handling them).
+  `limit_exceeded` and `cluster` entries gone (the SDKs keep handling them). The fixtures' usage and refusals (429
+  `E_RATE`, 403 `E_LIMIT` requests) are the server's real answers (glyphh-ai/server's ada-cloud-connector).
 
 ## 3.1.0
 

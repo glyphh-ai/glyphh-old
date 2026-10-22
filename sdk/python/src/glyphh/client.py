@@ -200,6 +200,69 @@ class Job:
         )
 
 
+def _count(value: Any) -> Optional[int]:
+    return None if value is None else int(value)
+
+
+@dataclass(frozen=True)
+class Held:
+    """The precedents the org's models hold together, against the plan's (`max` None: by contract, no cap)."""
+
+    used: int
+    max: Optional[int]
+
+
+@dataclass(frozen=True)
+class Requests:
+    """The org's requests this month (reads: decide, query, probabilities, facts; a decide of several outputs once per
+    output) against the plan's month (`max` None: by contract). `overage`: past the month the reads go on, metered
+    (Pro, Team), `over` of them so far; else (Free) they are refused, LimitError `requests`, until `resets_at`."""
+
+    used: int
+    max: Optional[int]
+    over: int
+    overage: bool
+
+
+@dataclass(frozen=True)
+class Usage:
+    """`GET /v1/usage`: what the org uses of Ada Cloud against its plan, in the calendar `month` counted (YYYY-MM,
+    UTC), which starts again on `resets_at` (YYYY-MM-DD): its live `models`, the `precedents` they hold, its
+    `requests`, and the calls a second the plan allows (`requests_per_second`, None: by contract). Reads as the
+    answer's dict too (`usage["plan"]`)."""
+
+    plan: str
+    month: str
+    resets_at: str
+    models: int
+    precedents: Held
+    requests: Requests
+    requests_per_second: Optional[int]
+    data: Dict[str, Any] = field(default_factory=dict, repr=False)
+
+    def __getitem__(self, key: str) -> Any:
+        return self.data[key]
+
+    @classmethod
+    def of(cls, body: Mapping[str, Any]) -> "Usage":
+        held, reads = body.get("precedents") or {}, body.get("requests") or {}
+        return cls(
+            plan=str(body.get("plan") or ""),
+            month=str(body.get("month") or ""),
+            resets_at=str(body.get("resets_at") or ""),
+            models=int(body.get("models") or 0),
+            precedents=Held(used=int(held.get("used") or 0), max=_count(held.get("max"))),
+            requests=Requests(
+                used=int(reads.get("used") or 0),
+                max=_count(reads.get("max")),
+                over=int(reads.get("over") or 0),
+                overage=bool(reads.get("overage")),
+            ),
+            requests_per_second=_count(body.get("requests_per_second")),
+            data=dict(body),
+        )
+
+
 def _urllib(
     method: str, url: str, headers: Mapping[str, str], body: Optional[bytes]
 ) -> Tuple[int, bytes, Dict[str, str]]:
@@ -468,9 +531,10 @@ class Ada:
             _parsed(status, content, got)
         return content
 
-    def usage(self) -> Dict[str, Any]:
-        """The org's precedents held and requests this period, against its plan."""
-        return dict(self._call("GET", "/v1/usage"))
+    def usage(self) -> Usage:
+        """What the org uses of Ada Cloud against its plan: its models, the precedents they hold, and its requests
+        this calendar month (UTC), with when they start again and the calls a second the plan allows."""
+        return Usage.of(self._call("GET", "/v1/usage"))
 
     # SDK 3.0's calls for a self-hosted runtime: the cloud keeps no runs and deploys no repos
 

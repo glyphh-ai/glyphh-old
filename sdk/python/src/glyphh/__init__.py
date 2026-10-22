@@ -6,10 +6,13 @@ from .client import (
     WAITING,
     Ada,
     Decision,
+    Held,
     Job,
     Model,
+    Requests,
     Result,
     Transport,
+    Usage,
 )
 from .errors import (
     AdaError,
@@ -61,6 +64,7 @@ __all__ = [
     "ExpiredError",
     "FewRolesError",
     "HeadLostError",
+    "Held",
     "IdempotencyError",
     "ImportRefusedError",
     "InvalidError",
@@ -78,6 +82,7 @@ __all__ = [
     "PrecedentMissingError",
     "RateError",
     "ReadOnlyError",
+    "Requests",
     "Result",
     "RunLostError",
     "SpecError",
@@ -86,6 +91,7 @@ __all__ = [
     "TooLargeError",
     "Transport",
     "UnavailableError",
+    "Usage",
     "VersionGoneError",
     "VersionMissingError",
 ]

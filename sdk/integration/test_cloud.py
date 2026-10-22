@@ -16,14 +16,15 @@ from typing import Any, Dict, List, Optional, Tuple
 import pytest
 from jsonschema import validate
 
-import glyphh
 from glyphh import (
     Ada,
     AuthError,
     BusyError,
     Decision,
     Job,
+    LimitError,
     ModelMissingError,
+    RateError,
     Result,
     SpecReadingError,
 )
@@ -100,18 +101,24 @@ class Recorder:
 
     def __init__(self) -> None:
         self.seen: List[Tuple[str, str, int, Any, Any]] = []
+        self.retry_after: Dict[int, str] = {}  # an exchange's Retry-After, by its place in `seen`
 
     def __call__(self, method: str, url: str, headers: Any, body: Optional[bytes]) -> Any:
         status, content, got = _urllib(method, url, headers, body)
         path = re.sub(r"^https?://[^/]+", "", url)
+        after = {k.lower(): v for k, v in got.items()}.get("retry-after")
+        if after is not None:
+            self.retry_after[len(self.seen)] = after
         self.seen.append((method, path, status, _json(content), _json(body)))
         return status, content, got
 
-    def last(self, method: str, path: str, status: int, where: Any = None) -> Tuple[Any, Any, str]:
-        """The latest answer to such a request: (answer, request body, path)."""
-        for m, p, s, answer, sent in reversed(self.seen):
+    def last(self, method: str, path: str, status: int, where: Any = None) -> Tuple[Any, Any, str, Dict[str, str]]:
+        """The latest answer to such a request: (answer, request body, path, its Retry-After header if any)."""
+        for i in range(len(self.seen) - 1, -1, -1):
+            m, p, s, answer, sent = self.seen[i]
             if m == method and re.fullmatch(path, p.split("?")[0]) and s == status and (where is None or where(answer)):
-                return answer, sent, p
+                after = self.retry_after.get(i)
+                return answer, sent, p, ({"retry-after": after} if after is not None else {})
         raise AssertionError(f"no live answer to {method} {path} {status}")
 
 
@@ -213,14 +220,31 @@ def flow(tmp_path_factory: pytest.TempPathFactory) -> Dict[str, Any]:
     assert isinstance(q, Result) and q.done and q.data["count"] > 0
     out["query"] = q
 
-    # usage: GET /v1/usage (server's ada-cloud-session; ada-cloud-data has none)
-    try:
-        out["usage"] = ada.usage()
-    except glyphh.AdaError as e:
-        assert e.code == "E_NOT_FOUND"
-        out["usage"] = None
+    # usage: GET /v1/usage, the final shape (server's ada-cloud-connector)
+    out["usage"] = ada.usage()
 
     # refusals
+    # past the plan's calls a second (Free: 5): 429 E_RATE with Retry-After, raised by a client that does not wait
+    quick = Ada(transport=rec, retry_deadline=0)
+    with pytest.raises(RateError) as rate:
+        for _ in range(60):
+            quick.decide("tickets", asked(1))
+    assert (rate.value.status, rate.value.max, rate.value.detail["reason"]) == (429, 5, "rate")
+    assert rate.value.retry_after is not None and rate.value.retry_after >= 1
+    out["rate"] = rate.value
+    # a client that waits as Retry-After says goes on
+    assert Ada(transport=rec, retry_deadline=30).decide("tickets", asked(1)).outcome
+    # past the plan's month (the second org's, used already): 403 E_LIMIT requests, the plan to upgrade to, when it turns
+    full = Ada(key=os.environ["ADA_FULL_KEY"], transport=rec, retry_deadline=0)
+    with pytest.raises(LimitError) as month:
+        full.decide("tickets", asked(1))
+    err = month.value
+    assert (err.status, err.reason, err.plan, err.upgrade, err.max, err.used) == (403, "requests", "Free", "Pro", 10_000, 10_000)
+    assert err.resets_at == out["usage"].resets_at
+    # a refused read is not counted
+    left = full.usage()
+    assert (left.requests.used, left.requests.max, left.requests.over, left.requests.overage) == (10_000, 10_000, 0, False)
+    out["month"] = err
     with pytest.raises(AuthError) as wrong:
         Ada(key="glyphh_ak_not_a_key", transport=rec).decide("tickets", asked(1))
     assert wrong.value.status == 401
@@ -242,9 +266,12 @@ def test_the_whole_way(flow: Dict[str, Any]) -> None:
     for job in (flow["import"], flow["backtest"], flow["export"]):
         validate(job.data, CONTRACT["job"])
     validate(flow["query"].data, CONTRACT["answer"])
-    if flow["usage"] is not None:
-        validate(flow["usage"], CONTRACT["usage"])
-        assert flow["usage"]["models"] == 3 and flow["usage"]["precedents"]["used"] >= 2480
+    usage = flow["usage"]
+    validate(usage.data, CONTRACT["usage"])
+    assert (usage.plan, usage.models, usage.precedents.max, usage.requests_per_second) == ("Free", 3, 5_000, 5)
+    assert usage.precedents.used >= 2480 and usage["models"] == 3
+    assert usage.requests.used > 0 and (usage.requests.max, usage.requests.over, usage.requests.overage) == (10_000, 0, False)
+    assert re.fullmatch(r"\d{4}-\d{2}", usage.month) and re.fullmatch(r"\d{4}-\d{2}-01", usage.resets_at)
 
 
 LIVE = {
@@ -258,12 +285,14 @@ LIVE = {
     "a backtest, done": ("GET", r"/v1/jobs/.+", 200, lambda b: b["kind"] == "backtest" and b["state"] == "done"),
     "a settings change, live at once": ("PATCH", r"/v1/models/[^/]+/settings", 200, lambda b: b["job"] is None),
     "an export, done, with its download link": ("GET", r"/v1/jobs/.+", 200, lambda b: b["kind"] == "export" and b["state"] == "done"),
-    "the org's usage": ("GET", r"/v1/usage", 200, None),
+    "the org's usage": ("GET", r"/v1/usage", 200, lambda b: b["models"] > 0),  # the first org's, not the full one's
     "a query through POST /v1/runs, as SDK 3.0 calls it": ("POST", r"/v1/runs", 200, lambda b: b["function"] == "query"),
     "a wrong key": ("POST", r"/v1/decide", 401, None),
     "a model that is not there": ("GET", r"/v1/models/nope", 404, None),
     "a spec that reads a role another way": ("PUT", r"/v1/models/[^/]+/spec", 422, None),
     "another import open on the model": ("POST", r"/v1/models/[^/]+/imports", 409, None),
+    "past the plan's calls a second": ("POST", r"/v1/decide", 429, None),
+    "past the plan's month of requests": ("POST", r"/v1/decide", 403, lambda b: b["error"].get("reason") == "requests"),
 }
 # Refusals a local run cannot reach cheaply: past the plan's 5,000 precedents, and a model over 100,000.
 NOT_LIVE = {"cases past the plan's precedents", "a big model asked with few of its roles"}
@@ -274,12 +303,13 @@ def test_each_fixture_is_what_the_server_answers(flow: Dict[str, Any], fixture: 
     name = fixture["name"]
     if name in NOT_LIVE:
         pytest.skip("not reached by a local run")
-    if name == "the org's usage" and flow["usage"] is None:
-        pytest.skip("this server has no GET /v1/usage")
     method, path, status, where = LIVE[name]
     assert (fixture["request"]["method"], fixture["response"]["status"]) == (method, status)
-    live, sent, at = flow["rec"].last(method, path, status, where)
+    live, sent, at, headers = flow["rec"].last(method, path, status, where)
     body = fixture["response"]["body"]
+    if status == 429:  # when to ask again, as the header and as the body say
+        assert set(headers) == set(fixture["response"].get("headers", {})) == {"retry-after"}
+        assert float(headers["retry-after"]) == live["error"]["retry_after"] >= 1
     if fixture["schema"]:
         validate(live, CONTRACT[fixture["schema"]])
         validate(body, CONTRACT[fixture["schema"]])
@@ -292,5 +322,5 @@ def test_each_fixture_is_what_the_server_answers(flow: Dict[str, Any], fixture: 
         assert set(live) == set(body), (sorted(live), sorted(body))
     dump = os.environ.get("ADA_LIVE_DIR")  # the live exchange, to refresh the fixture from
     if dump:
-        exchange = {"path": at, "request": sent, "response": live}
+        exchange = {"path": at, "request": sent, "response": live, "headers": headers}
         Path(dump, re.sub(r"\W+", "_", name) + ".json").write_text(json.dumps(exchange, indent=1))

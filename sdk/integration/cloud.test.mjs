@@ -1,15 +1,20 @@
 // The TypeScript SDK against a real Ada Cloud (run.sh): a model made, its history imported, learned, decided,
-// backtested, tuned, rolled back, exported and imported again; every answer has its contract's required keys.
+// backtested, tuned, rolled back, exported and imported again; the usage, past the plan's calls a second (RateError)
+// and past its month (LimitError); every answer has its contract's required keys.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const sdk = await import(process.env.SDK ?? "../typescript/dist/index.js");
-const { Ada, AuthError, BusyError, ModelMissingError, SpecReadingError } = sdk;
+const { Ada, AuthError, BusyError, LimitError, ModelMissingError, RateError, SpecReadingError } = sdk;
 const contract = JSON.parse(readFileSync("/contract/contract.json", "utf8"));
 
 /** The schema's required keys are there (the Python suite validates the full JSON Schemas). */
 function shaped(body, name) {
+  if (name === "usage_requests") {
+    for (const key of ["used", "max", "over", "overage"]) assert.ok(key in body, `usage.requests lacks ${key}`);
+    return;
+  }
   const schema = contract[name];
   for (const key of schema.required) assert.ok(key in body, `${name} lacks ${key}`);
   if (name === "decision") {
@@ -122,11 +127,29 @@ test("create a model, import, learn, decide, backtest, activate, export", async 
   assert.equal(waiting.state, "awaiting");
   await assert.rejects(copy.importFile(lines, { format: "jsonl" }), (e) => e instanceof BusyError && e.detail.job === waiting.id);
 
-  try {
-    shaped(await ada.usage(), "usage");
-  } catch (e) {
-    assert.equal(e.code, "E_NOT_FOUND"); // a server without GET /v1/usage
-  }
+  const usage = await ada.usage();
+  shaped(usage, "usage");
+  shaped(usage.requests, "usage_requests");
+  assert.deepEqual([usage.plan, usage.precedents.max, usage.requests.max, usage.requests.overage, usage.requests_per_second], ["Free", 5000, 10000, false, 5]);
+  assert.ok(usage.requests.used > 0 && /^\d{4}-\d{2}$/.test(usage.month) && /^\d{4}-\d{2}-01$/.test(usage.resets_at));
+
+  // past the plan's calls a second (Free: 5): 429 E_RATE with Retry-After, thrown by a client that does not wait
+  const quick = new Ada({ retryDeadline: 0 });
+  await assert.rejects(
+    (async () => {
+      for (let i = 0; i < 60; i++) await quick.decide("ts-tickets", asked(1));
+    })(),
+    (e) => e instanceof RateError && e.status === 429 && e.max === 5 && e.retryAfter >= 1,
+  );
+  assert.ok((await new Ada({ retryDeadline: 30 }).decide("ts-tickets", asked(1))).outcome); // waiting, it goes on
+  // past the plan's month (the second org's, used already): 403 E_LIMIT requests, the plan to upgrade to, when it turns
+  const full = new Ada({ key: process.env.ADA_FULL_KEY, retryDeadline: 0 });
+  await assert.rejects(full.decide("ts-tickets", asked(1)), (e) => {
+    assert.ok(e instanceof LimitError);
+    assert.deepEqual([e.status, e.reason, e.plan, e.upgrade, e.max, e.resetsAt], [403, "requests", "Free", "Pro", 10000, usage.resets_at]);
+    return true;
+  });
+
   for (const name of ["ts-tickets", "ts-copy"]) assert.equal((await ada.deleteModel(name)).deleted, true);
   await assert.rejects(m.info(), ModelMissingError);
 });
