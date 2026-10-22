@@ -1,166 +1,154 @@
 ---
 name: ada
-description: Build, deploy and call Ada models on the user's Glyphh runtime. Use when the user wants software (or Claude) to decide something the way it was decided before (route a ticket, pick the fix for an error, triage a lead, apply a policy), to remember outcomes so the next similar case is answered from precedent, or asks about Ada, their runtime, a model's spec, or deploying a model.
+description: Build, load, tune and ask Ada models in Ada Cloud through the Glyphh connector's ada_* tools. Use when the user wants software (or Claude) to decide something the way it was decided before (route a ticket, pick the fix for an error, triage a lead, approve or refuse, apply a policy), to load a history of past cases and outcomes so the next case is answered from precedent, to backtest or tune such a model, to read one of its answers, or to call it from their own code with an API key; or asks about Ada, Ada Cloud, a model's spec, or the Glyphh SDKs.
 ---
 
 # Ada
 
-An Ada model is a typed spec and a precedent store, in the user's own Glyphh runtime. Each case recorded with its
-outcome becomes a precedent; a new case is answered from the precedents closest to it: the leading outcome, how
-sure, and the precedents it stands on. The same question always gets the same answer, no language model is in the
-path, and the model says when it does not know. Nothing of Glyphh's sees the data: the runtime is the user's.
+An Ada model is a spec (what a case looks like, what the outcomes are, what each mistake costs) and its precedents:
+past cases with their outcomes. A new case is answered from the precedents closest to it: the outcome of least
+expected cost, calibrated probabilities, whether a person should decide instead, and the precedents it stands on. The
+same question always gets the same answer, no language model is in the path, and the model says when it does not
+know. It learns one confirmed case at a time.
 
-## The runtime, and how you reach it
+Glyphh runs it: Ada Cloud, at `https://ada.glyphh.ai`. There is nothing to install, deploy or host, no repository and
+no code to write for a model: the spec is JSON, and you write it with the user.
 
-The user's runtime is a connector in Claude, at one of two addresses:
+## How you reach it
 
-- **Hosted by Glyphh:** `https://<machine>.glyphh.app/mcp`, a machine made and started on the Glyphh platform
-  (https://platform.glyphh.ai), whose Machines page shows the address to add.
-- **Self-hosted:** `https://<host>/mcp`, a rrotor the user runs on their own infrastructure, registered on the
-  platform under its public address. TLS is the owner's; the address is theirs.
-
-Either way it is added once in Claude (Settings, Connectors, a custom connector with that URL) with one Allow click:
-the runtime signs the user in through Glyphh, and no key is typed. Its tools are what you use:
+Through the Glyphh connector, `https://api.glyphh.ai/mcp`, added once in Claude (Settings, Connectors) and signed in
+with Google or GitHub. Its Ada tools:
 
 | Tool | Does |
 |---|---|
-| `models_list` | The models deployed: versions, the active one, its functions |
-| `model_deploy` `{repo, commit, token?}` | A commit of a model's GitHub repo as its next version |
-| `model_call` `{model, function?, inputs?, version?, clearance?}` | Run a function (`start` by default): the first Result, with its data |
-| `model_continue` `{run_id, answer}` | Answer a run that waits (`needs_input`, `needs_approval`) |
-| `model_cancel` `{run_id}` | Stop a run |
-| `run_status`, `run_log` `{run_id}` | A run's status and last Result; its log lines |
-| `approvals` | The runs waiting for the user |
+| `ada_models`, `ada_model {name}` | The org's models; one with its spec, active version, size and settings |
+| `ada_model_create {name, spec}` | A model from its spec: version 1, empty |
+| `ada_spec_update {name, spec, note}`, `ada_model_delete {name, confirm}` | A new version of the spec; delete a model (`confirm` repeats its name) |
+| `ada_record {name, data, outcome?}`, `ada_record_many {name, cases}` | One case, or up to 1,000 `{data, outcome?, outcomes?, ts?}` |
+| `ada_grade {name, id, value, output?}`, `ada_forget {name, id}` | An outcome on a case already in; forget one case |
+| `ada_import {name, format, mapping?, content?, rows?}` | An import, as a job: a one-hour upload link for the file, or the file's text or its rows inline (5 MB) |
+| `ada_job {id, wait_seconds?}` | Any job's state and progress, waiting up to 50 s for it to end; a done export's download link |
+| `ada_learn {name}`, `ada_calibrate {name}` | Weigh the roles from the precedents, then calibrate; calibrate alone. Jobs |
+| `ada_decide`, `ada_query`, `ada_probabilities`, `ada_facts` `{name, data, ...}` | Ask |
+| `ada_backtest {name, candidates, holdout?}` | Score the live version and candidates on held-out cases, the live model untouched. A job |
+| `ada_settings {name, changes?, note?, backtest?}` | Every lever; with changes, a new version |
+| `ada_versions {name}`, `ada_activate {name, version}` | Versions, who made them and why; roll back |
+| `ada_export {name, format?}` | Everything out, as a job whose done state has a one-hour download link |
+| `create_api_key {name, expires_in_days?, clearance?}`, `api_keys`, `revoke_api_key` | A key for the user's code, shown once; the keys; revoke one |
 
-No runtime connector: the user registers one on the platform (https://platform.glyphh.ai, Runtimes, Add a runtime),
-which gives its id and token, then runs it, with nothing to clone (https://docs.glyphh.ai/run-rrotor):
+No `ada_*` tools: the connector is not added, or not signed in. Ask the user to add `https://api.glyphh.ai/mcp` in
+Claude's Connectors and sign in; never ask for a key or a token in the chat.
 
-- One machine with Docker, Caddy in front for HTTPS, the public host's DNS pointed at it first: `curl -fsSL
-  https://glyphh.ai/install.sh | RROTOR_RUNTIME_ID=<id> RROTOR_RUNTIME_TOKEN=<token> RROTOR_PUBLIC_HOST=<host> sh`
-  (`RROTOR_SIZE=small|medium|large` optional; it writes `./rrotor` and starts it).
-- HTTPS already in front: `docker run` of `ghcr.io/glyphh-ai/rrotor:latest` on port 7777, the line at
-  https://docs.glyphh.ai/docker-compose.
-- Kubernetes: `helm install` of the chart in `glyphh-ai/glyphh`'s release `rrotor-chart-<version>`
-  (https://docs.glyphh.ai/helm).
-- AWS or Google Cloud: the Terraform module, source
-  `git::https://github.com/glyphh-ai/glyphh.git//deploy/terraform/<aws|gcp>?ref=main` (https://docs.glyphh.ai/terraform).
-
-Then they add `https://<host>/mcp` as a connector. Ada is in every Glyphh plan, Free included: there is nothing to
-buy to use it, and Glyphh never charges per seat, per model or per install. A runtime holds, per node and across all
-its models, the precedents its licence key allows: with no key (Community, Free) 5,000; Pro 50,000; Team 500,000;
-Enterprise unlimited. A `record` past that cap is not an error: the run is `done` with `data.status`
-`"limit_exceeded"` (`indexed: false`, with `message`, `precedents` and `cap`). Tell the user nothing was recorded
-and that a plan with a higher cap lifts it. Never ask for a key or a token; the connector carries the sign-in.
-
-## A model
-
-A repo with three files; a version is a commit.
-
-- `glyphh.json`: the manifest. `"needs": ["ada"]`, `"data": true`, and `functions`, each with a JSON Schema of its
-  inputs. The usual set: `record {data, outcome?}`, `query {data}`, `facts {data, top?}`,
-  `probabilities {data}`, `learn {sample?}`, `decide {data}`, `settings {changes?}` and `start`. Every function
-  declares `"writes"` beside its `inputs` (`"query": {"description": ..., "inputs": {...}, "writes": false}`):
-  `false` for `query`, `facts` and `probabilities`, which only read the store; `true` for `record`, `learn`,
-  `decide` (it records the answer it asks for), `settings` (it can change them) and `start`, and for any function
-  that records, learns, calibrates or configures. In a cluster a writing function runs on the head and a read on
-  any node; a function marked `false` that writes fails with `E_READ_ONLY`.
-- `spec.json`: what a case looks like. `layers` of `segments` of `roles`; a role is a value (exact match), a
-  `text_encoding: "bag_of_words"` text (its words read through the kernel's seeded lexicon, and weighed by
-  `learn`), a `numeric_config {min_value, max_value, bin_width}` number, or a key part
-  (`key_part: true`, `similarity_weight: 0`). A layer or segment with `security_weight` (0 to 1) is cut from every
-  answer for a caller whose `clearance` is below it: put owners, causes, internal notes there. `temporal_source`
-  names the role that is the case's time. `seed` and `dimension` fix the encoding; changing them re-encodes the store
-  on deploy. A role may carry `value_weights` (`{"negative": 1.0, "200 or more": 0.2}`: how much each value says;
-  a number's key is its bin's lower edge), and `output.costs` is the cost matrix of deciding wrong
-  (`{"good": {"bad": 5}, "bad": {"good": 1}}`: approving a bad loan costs five refusals of a good one); unset,
-  every wrong answer costs 1. `output.ask` prices asking a person in the same units: set, `decide` says `ask`
-  wherever every outcome's expected cost is above it. The weights are usually learned, not written by hand (below);
-  the costs and the price of asking are the user's business numbers.
-- `model.py`: `from rrotor import Result, ada`; `load(ctx)` calls `ada.open(ctx)`; each function reads
-  `inputs`, uses `ctx.ada`, the kernel's `Model` (`record`, `query`, `facts`, `probabilities`, `learn`,
-  `calibrate`, `refresh`, `decide`, `spec`, `space`) with `clearance=ctx.clearance`, and answers
-  `Result.done(data)`. `ctx.ada.decide(data)` answers `{outcome, expected_cost, probabilities, ask}`: the outcome
-  with the least expected cost under the calibrated probabilities and the spec's `output.costs`, and `ask` true
-  when a person should answer instead (nothing known, or every answer dearer than `output.ask`). A model's own
-  `decide` function returns that when `ask` is false, else `ctx.needs_input(prompt)` to ask, then records the
-  answer. The model's levers live in `spec.json`'s `settings` (below, Tuning) and `refresh_every: 100` there makes
-  the model learn its weights from its own store and recalibrate every hundred graded cases, so it follows its
-  cases without a redeploy; the learned weights live with the store, over the spec file's.
-
-A worked example, an app's incidents: a case is `service` and `error_code` (exact), `message` (bag of words) and
-`hour` (numeric), with `cause`, `owner` and `runbook` in a layer with a `security_weight`; the outcome is the fix.
-Each incident is recorded with its fix; a new error is answered with the nearest precedents' fix, and their cause,
-owner and runbook only for a caller cleared for that layer.
+A model name is lower case letters, digits and `_ . -`, at most 63. A refusal carries a code: `E_LIMIT` (the plan's
+cap: `reason`, `used`, `max`), `E_SPEC` (the spec or a case does not fit it; `path` says where), `E_SPEC_LIMIT`,
+`E_SPEC_READING`, `E_FEW_ROLES`, `E_MAPPING`, `E_BUSY` (an import or re-encode is running: wait for its job),
+`E_MODEL_MISSING`. Say what it means in plain words and what to do; never retry a refusal unchanged.
 
 ## Building one with the user
 
-1. Agree the case: what comes in (the fields, which are exact, which are text, which are numbers on a scale, which
-   are secret), what the outcome is (a short string: the decision), and who will call (people, a bot, software:
-   their clearances).
-2. Write `spec.json`, `glyphh.json` and `model.py`; tests on `rrotor.testing.Harness`.
-3. Set `output.costs` and `output.ask` with the user: what each wrong answer costs them, and what a person's
-   answer costs. Open the model with `refresh_every` so it learns its weights from the cases it records (every
-   role's weight becomes how much it tells about the outcome, every value's how far it moves it; roles that tell
-   nothing drop to 0). With past cases on hand before the first commit, the same can be done up front:
-   `Spec.from_json(spec).learned([(data, outcome), ...]).to_json()` written back to `spec.json`. Do not learn
-   from cases you will later test on; hold some out and report what they say.
-4. Commit, push to the user's GitHub repo, `model_deploy` the commit. The runtime answers `{model, version}`.
-5. Seed it: `model_call record` for each past case with its outcome (ten to fifty is a good start, hundreds is
-   better). Then `model_call learn`: the model weighs its roles by what its own precedents say and calibrates its
-   probabilities, both saved with the store; it answers the roles' weights, which tell the user what their cases
-   actually turn on. With `refresh_every` set the model does this on its own as cases arrive; call `learn` again
-   after a batch of new precedents otherwise. It needs ten graded precedents of two outcomes.
-6. Try it: `model_call query` and `decide` with new cases; `facts` to show why. Tune the levers live with
-   `model_call settings {changes}` (below, Tuning); change the costs, the secured layers and the shape in
-   `spec.json` and redeploy.
-7. Software calls it with a runtime key (made on the platform's API Keys page) through the SDKs, `glyphh` for
-   Python (`pip install glyphh`, `from glyphh import Ada`) and `@glyphh-ai/glyphh` for TypeScript and JavaScript
-   (`npm i @glyphh-ai/glyphh`), both in `glyphh-ai/glyphh`; or `POST /v1/runs` at the runtime's own address
-   (`https://<machine>.glyphh.app` or `https://<host>`).
-
-## Tuning
-
-Every lever is a setting, declared in `spec.json`'s `settings` and changeable live with `model_call settings
-{changes: {...}}` (kept with the store, over the spec's, until changed again; `model_call settings {}` reads them
-all). A learning lever moved relearns the store there and then. The levers, with their defaults:
-
-| Setting | Default | What it does |
-|---|---|---|
-| `k` | 15 | How many nearest precedents a query votes over |
-| `min_sim` | 0.10 | The weighted similarity a precedent needs to vote: higher means "say nothing rather than guess" |
-| `word_weights` | true | Learn a weight per word of a text role (which words matter) |
-| `word_floor` | 0.35 | The least a learned word weighs; lower lets the telling words dominate, higher keeps every word voting |
-| `interactions` | true | Learn pairs of roles that tell more together than apart |
-| `max_interactions` | 5 | How many pairs at most |
-| `rare` | 5 | A value, word or pair seen fewer times than this is not learned from |
-| `calibrate_by` | loss | `loss`: probabilities that mean what they say; `cost`: that decide best by `output.costs` |
-| `calibrate_sample` | 200 | The newest precedents a calibration holds out |
-| `refresh_every` | none | Learn and calibrate again every so many graded records |
-| `lexicon` | true | Read a text role's words through the kernel's seeds (WordNet's 77,817 words with synonyms and near words, the Moby list's 192,960 forms with their parts of speech), so related words correlate |
-| `word_pairs` | false | Learn pairs of common words that tell more together than apart ("top" + "up"); for a model whose intents are phrases |
-| `max_word_pairs` | 20 | How many word pairs at most |
-| `word_evidence` | 2 | How much a case's words, by what each says of every outcome, weigh on the vote (0: not at all); the weight per word per outcome a classic text model has |
-
-How to tune honestly: hold some cases out, change one lever, `learn`, score the held-out cases, keep what helped.
-Never score on the cases the model learned from. The benchmarks in `glyphh-ai/glyphh` (`benchmarks/credit`,
-`benchmarks/banking77`) show the method and what each lever did on real data.
+1. **Agree the case.** What comes in (the fields; which are exact values, which free text, which numbers on a scale,
+   which an id, which only some callers may see), what the outcome is (a short string: the decision), what each
+   wrong answer costs them, and when a person should decide instead. Ask; do not guess the business numbers.
+2. **Write the spec** (the format: [references/spec.md](references/spec.md)) and show it to the user in plain words
+   before you make it. Choose how each role reads its values with care: a role's reading (`numeric_config`,
+   `text_encoding`, `key_part`) cannot change once cases are stored (`E_SPEC_READING`); fixing it takes a new model
+   and an import. Then `ada_model_create`.
+3. **Load the history.** Read the user's file first and map its columns to the spec's roles with them; leave out
+   anything that was only known after the outcome (it would leak the answer).
+   - Up to a few thousand rows: `ada_record_many` in chunks of 1,000, each `{data, outcome}` in the spec's shape;
+     then `ada_learn`.
+   - A file: `ada_import {name, format: "csv" | "jsonl", mapping}` answers a job and an upload link; send the file
+     to it (in Claude Code: `curl -sS -T <file> "<upload url>"`), then `ada_job {id, wait_seconds: 30}` until it is
+     `done`. A small file (5 MB) can go inline instead, as `content` (its text) or `rows` (the cases). CSV: a header
+     names a role by its path (`ticket.what.plan`) or `mapping` maps it (`{"Plan": "ticket.what.plan", "Result":
+     "outcome", "Notes": null}`; `outcome.<output>` for a named output, null skips a column).
+   - Report what went in: rows, added, replaced (an id held already replaces its row), and the refused rows with
+     why (the first are named). An import learns and calibrates at its end.
+4. **Learn.** `ada_learn` (after `ada_record_many`; an import already did), a job: follow it with `ada_job`. It
+   needs ten graded precedents of two outcomes. What it found is what the cases actually turn on: each role's learned weight (0: it tells nothing), the
+   pairs of roles that tell more together, the telling words. Tell the user; it is often the first useful thing they
+   learn.
+5. **Backtest before trusting it.** `ada_backtest {name, candidates: [], holdout: {newest: 200}}` (a job) scores
+   the live version on the newest 200 cases, learned on the rest. Read it with them ([references/tuning.md](references/tuning.md)):
+   accuracy, cost, how often it asks, and its accuracy where it did not ask.
+6. **Ask it.** `ada_decide {name, data}` with new cases; `include: ["facts"]` (or `ada_facts`) to show why.
+7. **Tune** if the numbers call for it (below), and **keep learning:** `ada_record` each outcome the user or the
+   world confirms. Never record your own guess as a precedent.
+8. **Call it from their code:** below.
 
 ## Reading an answer
 
-`query` answers `{sufficient, confidence, support, count, top, outcomes, receipts}`. Act on `top` only when
-`sufficient` is true and `confidence` clears the bar the user set (0.6 is a sound start), and `count` is more than one
-or two: a consensus of one is not consensus. `confidence` is a similarity-weighted vote, not a probability: for a
-probability use `probabilities` (calibrated once the model has been), and for a decision that weighs what each
-mistake costs use the kernel's `decide`. Where every answer is dearer than asking (`ask` true), the right move is
-to ask the person, not to guess; a model's `decide` function asks (`needs_input`), you answer it with
-`model_continue`, and the answer is recorded as a new precedent. The price of asking sets how often: on the credit
-data below, asking at half a refused good loan sent nearly half the cases to a person and decided the rest at a
-quarter of the cost.
+`ada_decide` answers `{outcome, probabilities, expected_cost, ask, receipts, model, version}`:
 
-What to expect: on a public credit data set with 800 cases learned and 200 held out (`benchmarks/credit` in
-`glyphh-ai/glyphh`), the learned, calibrated model matched Claude judging the same cases on accuracy and on the
-bank's cost, deterministically, at a few millionths of a dollar a decision; a thresholded logistic regression was a
-level with it on cost. Ada's edge is the receipts, the clearances and learning one confirmed case at a time, not
-beating a classic model on numbers; say so when a user has purely numeric data and no need for those.
+- `outcome`: the choice of least expected cost under the spec's costs, from the calibrated `probabilities`
+  (`expected_cost` is its cost in the spec's units).
+- `ask: true`: a person should decide. Nothing close enough is known, every choice costs more than asking
+  (`output.ask`), or the top probability is under the spec's bar (`output.ask_below`). The `outcome` is then only
+  the best guess, for the person to see. Ask them, and record their answer.
+- `receipts`: the precedents it stands on (`id`, `sim`, `outcome`, `hash`, `author`). Cite them.
+- `outputs`, when several named outputs were decided at once: one such answer each.
 
-Record only outcomes the user or the world confirmed. Never record your own guess as a precedent.
+`ada_query` is the raw vote, `{sufficient, confidence, support, count, top, outcomes, receipts}`: trust `top` only
+when `sufficient` and `count` is more than one or two; `confidence` is a similarity-weighted vote, not a
+probability. A caller with a lower `clearance` sees less: secured roles are cut from what it reads.
+
+What to expect: on a public credit data set (800 cases learned, 200 held out) the learned, calibrated model matched
+Claude judging the same cases on accuracy and on the bank's cost, deterministically, at a tiny fraction of the cost
+a decision; a classic model was level with it on cost. Ada's edge is the receipts, the clearances, asking when it
+should, and learning one confirmed case at a time, not beating a classic model on numbers: say so when the user has
+purely numeric data and needs none of those.
+
+## Tuning, with the user
+
+Every lever is a setting or part of the spec, and every change is a new version you can roll back
+([references/tuning.md](references/tuning.md) lists them).
+
+1. Read `ada_model` and `ada_settings`.
+2. Propose **one** change at a time, with the reason ("the words decide most tickets; weigh them more").
+3. `ada_backtest` the live version against the candidate (`{"settings": {...}}`, or a whole `{"spec": {...}}`) on
+   held-out cases.
+4. Say what changed in plain words: "asks 12% fewer times, costs 8% less on the last 200 cases, the same accuracy".
+   Never score on cases the model learned from: the backtest holds out its own, and so do you.
+5. Only when the user agrees: `ada_settings {name, changes, note}` (or `ada_spec_update`) with the reason as the
+   note. A change that only reads differently is live at once; one that changes what a stored case carries (the
+   learning levers, roles added or taken away, the lexicon) re-encodes the model as a job while the old version
+   answers: follow it with `ada_job`.
+6. If live results fall, `ada_versions` and `ada_activate` the version before.
+
+What needs code is not a lever: a derived field (a ratio, a weekday) is computed by the caller and sent as a role;
+a business rule ("never above $50,000") is applied by the caller around the answer.
+
+## Calling it from code
+
+`create_api_key {name}` makes a key, shown once (`clearance` below 1 for a caller who may not see the secured roles;
+`expires_in_days` for one that should lapse): the user keeps it as a secret (`GLYPHH_API_KEY` in their environment or
+secret store), never in the chat, a file in the repository, or a commit. Then:
+
+```python
+from glyphh import Ada                      # pip install glyphh
+
+d = Ada().decide("tickets", {"ticket": {"what": {"plan": "pro", "text": "charged twice"}}})
+if d.ask: send_to_a_person(d)               # d.outcome is the best guess
+else: act(d.outcome)
+```
+
+```ts
+import { Ada } from "@glyphh-ai/glyphh";   // npm i @glyphh-ai/glyphh
+
+const d = await new Ada().decide("tickets", { ticket: { what: { plan: "pro", text: "charged twice" } } });
+```
+
+Or `POST https://ada.glyphh.ai/v1/decide {model, data}` with `Authorization: Bearer <key>`. The SDKs also make
+models, import files, backtest, tune and export, with typed errors (`LimitError`, `SpecReadingError`, ...).
+
+## Limits
+
+Precedents are counted across the org's models, against the plan: Free 5,000, Pro 100,000, Team 1,000,000. A write
+or import past it is refused whole (`E_LIMIT`, `reason: "precedents"`, with `used` and `max`); an import with
+`partial` records up to the cap. Tell the user nothing was recorded past it and that a plan with a higher cap lifts
+it (`plan` and `upgrade` on the connector). Reads (`decide`, `query`, `probabilities`, `facts`; a decide per output)
+count against the plan's month (Free 10,000, refused past it with `E_LIMIT` `reason: "requests"`; Pro and Team go
+on, metered), and calls a second against its rate (`E_RATE`, wait as `Retry-After` says). A model over 100,000 precedents asked with under half its voting roles is
+refused (`E_FEW_ROLES`): ask with more of the case. A spec is at most 64 KB, 64 roles, 20 named outputs, 200 values
+an output, `k` 200, `dimension` 8,192. `ada_export` gives everything back (precedents, every spec version, what was
+learned) as a zip, which `ada_import` takes into a new model of the same spec.
