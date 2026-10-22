@@ -146,7 +146,7 @@ test("create a model, import, learn, decide, backtest, activate, export", async 
   const full = new Ada({ key: process.env.ADA_FULL_KEY, retryDeadline: 0 });
   await assert.rejects(full.decide("ts-tickets", asked(1)), (e) => {
     assert.ok(e instanceof LimitError);
-    assert.deepEqual([e.status, e.reason, e.plan, e.upgrade, e.max, e.resetsAt], [403, "requests", "Free", "Pro", 10000, usage.resets_at]);
+    assert.deepEqual([e.status, e.reason, e.plan, e.upgrade, e.max, e.resetsAt], [403, "requests", "Free", "Basic", 10000, usage.resets_at]);
     return true;
   });
 

@@ -82,7 +82,7 @@
   "usage": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "Usage",
-    "description": "GET /v1/usage (the same object is `cloud` on the account API's /v1/me and /v1/billing): the org's plan, the calendar month counted (UTC) and the day it starts again, its live models, the precedents they hold against the plan's, its requests this month against the plan's (reads: decide, query, probabilities, facts; a decide of several outputs once per output; `over`: past the month, metered on Pro and Team; `overage` false: refused past it, E_LIMIT requests), and the plan's calls a second. A null max is by contract: no cap",
+    "description": "GET /v1/usage (the same object is `cloud` on the account API's /v1/me and /v1/billing): the org's plan, the calendar month counted (UTC) and the day it starts again, its live models, the precedents they hold against the plan's, its requests this month against the plan's (reads: decide, query, probabilities, facts; a decide of several outputs once per output; `over`: past the month, metered on Basic, Pro and Team; `overage` false: refused past it, E_LIMIT requests), and the plan's calls a second. A null max is by contract: no cap",
     "type": "object",
     "required": ["plan", "month", "resets_at", "models", "precedents", "requests", "requests_per_second"],
     "properties": {

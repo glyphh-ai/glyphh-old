@@ -239,7 +239,7 @@ def flow(tmp_path_factory: pytest.TempPathFactory) -> Dict[str, Any]:
     with pytest.raises(LimitError) as month:
         full.decide("tickets", asked(1))
     err = month.value
-    assert (err.status, err.reason, err.plan, err.upgrade, err.max, err.used) == (403, "requests", "Free", "Pro", 10_000, 10_000)
+    assert (err.status, err.reason, err.plan, err.upgrade, err.max, err.used) == (403, "requests", "Free", "Basic", 10_000, 10_000)
     assert err.resets_at == out["usage"].resets_at
     # a refused read is not counted
     left = full.usage()

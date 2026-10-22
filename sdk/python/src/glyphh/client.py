@@ -216,7 +216,7 @@ class Held:
 class Requests:
     """The org's requests this month (reads: decide, query, probabilities, facts; a decide of several outputs once per
     output) against the plan's month (`max` None: by contract). `overage`: past the month the reads go on, metered
-    (Pro, Team), `over` of them so far; else (Free) they are refused, LimitError `requests`, until `resets_at`."""
+    (Basic, Pro, Team), `over` of them so far; else (Free) they are refused, LimitError `requests`, until `resets_at`."""
 
     used: int
     max: Optional[int]

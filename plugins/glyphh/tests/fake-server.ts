@@ -43,12 +43,13 @@ const plan = (name: string, price_cents: number | null, interval: string | null,
   interval,
   self_serve: price_cents !== null,
   limits: { machines, precedents },
-  features: { sync: name !== 'Free', ha: name === 'Enterprise', offline: name === 'Enterprise', sso: name === 'Enterprise' },
+  features: { sync: name !== 'Free' && name !== 'Basic', ha: name === 'Enterprise', offline: name === 'Enterprise', sso: name === 'Enterprise' },
   markup_hidden: true,
 })
 
 export const PLANS = [
   plan('Free', 0, null, 0, 0),
+  plan('Basic', 2000, 'month', 0, 0), // Ada Cloud's $20 plan: no hosted machines
   plan('Pro', 9900, 'month', 3, 100000),
   plan('Team', 29900, 'month', 10, 1000000),
   plan('Enterprise', null, 'year', null, null),

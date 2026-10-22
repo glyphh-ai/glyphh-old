@@ -327,7 +327,7 @@ def test_a_refusal_is_its_typed_error(name, error):
     if name == "cases past the plan's precedents":
         assert (err.reason, err.used, err.max, err.upgrade, err.resets_at) == ("precedents", 4995, 5000, None, None)
     if name == "past the plan's month of requests":
-        assert (err.reason, err.plan, err.upgrade) == ("requests", "Free", "Pro")
+        assert (err.reason, err.plan, err.upgrade) == ("requests", "Free", "Basic")
         assert (err.used, err.max, err.resets_at) == (sent["used"], sent["max"], sent["resets_at"]) and err.max == 10_000
     if error is RateError:
         assert err.retry_after == float(c["response"]["headers"]["retry-after"]) == sent["retry_after"] and err.max == 5

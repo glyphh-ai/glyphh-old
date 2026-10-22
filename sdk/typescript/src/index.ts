@@ -141,7 +141,7 @@ export interface Usage {
   precedents: { used: number; max: number | null };
   /**
    * Reads this month (decide, query, probabilities, facts; a decide of several outputs once per output). `overage`:
-   * past the month they go on, metered (Pro, Team), `over` of them so far; else (Free) they are refused, LimitError
+   * past the month they go on, metered (Basic, Pro, Team), `over` of them so far; else (Free) they are refused, LimitError
    * `requests`, until `resets_at`.
    */
   requests: { used: number; max: number | null; over: number; overage: boolean };
