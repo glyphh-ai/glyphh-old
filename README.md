@@ -70,3 +70,8 @@ and only Glyphh maintainers release (the SDKs and the plugin): see [CONTRIBUTING
 
 By folder (`LICENSE`): `plugins/` under Glyphh's terms; `sdk/`, `contract/` and `benchmarks/` MIT. The benchmarks'
 data sets keep their own licences (CC BY 4.0).
+
+
+## License
+
+Apache-2.0. See LICENSE and NOTICE. Copyright 2026 Chris Timmerman / Glyphh AI LLC. More about it: https://glyphh.ai/projects/glyphh-old
